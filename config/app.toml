@@ -1,0 +1,21 @@
+# ClawChain Application Configuration
+# This is a template - actual config will be generated on `clawchaind init`
+
+[api]
+# Enable defines if the API server should be enabled.
+enable = true
+# Swagger defines if swagger documentation should automatically be registered.
+swagger = true
+# Address defines the API server to listen on.
+address = "tcp://0.0.0.0:1317"
+
+[grpc]
+# Enable defines if the gRPC server should be enabled.
+enable = true
+# Address defines the gRPC server address to bind to.
+address = "0.0.0.0:9090"
+
+[state-sync]
+# State sync snapshots allow other nodes to rapidly join the network
+snapshot-interval = 1000
+snapshot-keep-recent = 2

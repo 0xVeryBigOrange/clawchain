@@ -1,0 +1,300 @@
+package keeper
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"math/rand"
+
+	"cosmossdk.io/log"
+	storetypes "cosmossdk.io/store/types"
+	"github.com/cosmos/cosmos-sdk/codec"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	"github.com/clawchain/clawchain/x/challenge/types"
+)
+
+// Keeper 挑战模块 keeper
+type Keeper struct {
+	cdc      codec.BinaryCodec
+	storeKey storetypes.StoreKey
+	params   types.Params
+}
+
+// NewKeeper 创建新 keeper
+func NewKeeper(cdc codec.BinaryCodec, storeKey storetypes.StoreKey) Keeper {
+	return Keeper{
+		cdc:      cdc,
+		storeKey: storeKey,
+		params:   types.DefaultChallengeParams(),
+	}
+}
+
+// Logger 日志
+func (k Keeper) Logger(ctx sdk.Context) log.Logger {
+	return ctx.Logger().With("module", "x/"+types.ModuleName)
+}
+
+// InitGenesis 初始化创世
+func (k Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) {
+	k.params = gs.Params
+}
+
+// ExportGenesis 导出创世
+func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
+	return &types.GenesisState{
+		Params: k.params,
+	}
+}
+
+// GenerateChallenges 生成 epoch 挑战
+func (k Keeper) GenerateChallenges(ctx sdk.Context, epoch uint64, activeMiners []string) []types.Challenge {
+	if len(activeMiners) == 0 {
+		return nil
+	}
+
+	challenges := make([]types.Challenge, 0, k.params.ChallengesPerEpoch)
+	blockHash := ctx.HeaderHash()
+	
+	// 用区块哈希做随机种子
+	seed := int64(0)
+	if len(blockHash) > 0 {
+		for i := 0; i < 8 && i < len(blockHash); i++ {
+			seed = seed<<8 | int64(blockHash[i])
+		}
+	}
+	rng := rand.New(rand.NewSource(seed))
+
+	challengeTypes := []types.ChallengeType{
+		types.ChallengeTextSummary,
+		types.ChallengeSentiment,
+		types.ChallengeEntityExtraction,
+		types.ChallengeFormatConvert,
+		types.ChallengeMath,
+		types.ChallengeLogic,
+	}
+
+	for i := uint32(0); i < k.params.ChallengesPerEpoch; i++ {
+		cType := challengeTypes[rng.Intn(len(challengeTypes))]
+		prompt, expected := generateTask(cType, rng)
+
+		// 随机选择 K 个矿工
+		assignees := selectMiners(activeMiners, int(k.params.AssigneesPerChallenge), rng)
+
+		challenge := types.Challenge{
+			ID:             fmt.Sprintf("ch-%d-%d", epoch, i),
+			Epoch:          epoch,
+			Type:           cType,
+			Prompt:         prompt,
+			ExpectedAnswer: expected,
+			Assignees:      assignees,
+			Status:         types.ChallengeStatusPending,
+			CreatedHeight:  ctx.BlockHeight(),
+			Commits:        make(map[string]string),
+			Reveals:        make(map[string]string),
+		}
+		challenges = append(challenges, challenge)
+	}
+
+	// 存储挑战
+	store := ctx.KVStore(k.storeKey)
+	for _, ch := range challenges {
+		bz, _ := json.Marshal(ch)
+		store.Set([]byte(fmt.Sprintf("challenge:%s", ch.ID)), bz)
+	}
+
+	k.Logger(ctx).Info("生成挑战", "epoch", epoch, "count", len(challenges))
+	return challenges
+}
+
+// SubmitCommit 提交承诺
+func (k Keeper) SubmitCommit(ctx sdk.Context, challengeID, minerAddr, commitHash string) error {
+	store := ctx.KVStore(k.storeKey)
+	key := []byte(fmt.Sprintf("challenge:%s", challengeID))
+	bz := store.Get(key)
+	if bz == nil {
+		return types.ErrChallengeNotFound
+	}
+
+	var ch types.Challenge
+	json.Unmarshal(bz, &ch)
+
+	// 验证矿工是否被分配
+	assigned := false
+	for _, a := range ch.Assignees {
+		if a == minerAddr {
+			assigned = true
+			break
+		}
+	}
+	if !assigned {
+		return types.ErrNotAssigned
+	}
+
+	if _, ok := ch.Commits[minerAddr]; ok {
+		return types.ErrAlreadyCommitted
+	}
+
+	ch.Commits[minerAddr] = commitHash
+	ch.Status = types.ChallengeStatusCommit
+
+	bz, _ = json.Marshal(ch)
+	store.Set(key, bz)
+	return nil
+}
+
+// SubmitReveal 提交揭示
+func (k Keeper) SubmitReveal(ctx sdk.Context, challengeID, minerAddr, answer, salt string) error {
+	store := ctx.KVStore(k.storeKey)
+	key := []byte(fmt.Sprintf("challenge:%s", challengeID))
+	bz := store.Get(key)
+	if bz == nil {
+		return types.ErrChallengeNotFound
+	}
+
+	var ch types.Challenge
+	json.Unmarshal(bz, &ch)
+
+	// 验证 commit hash
+	expectedHash := sha256Hash(answer + salt)
+	if ch.Commits[minerAddr] != expectedHash {
+		return types.ErrCommitHashMismatch
+	}
+
+	ch.Reveals[minerAddr] = answer
+	ch.Status = types.ChallengeStatusReveal
+
+	bz, _ = json.Marshal(ch)
+	store.Set(key, bz)
+	return nil
+}
+
+// EvaluateChallenges 评估挑战结果
+func (k Keeper) EvaluateChallenges(ctx sdk.Context, epoch uint64) []types.ChallengeResult {
+	store := ctx.KVStore(k.storeKey)
+	var results []types.ChallengeResult
+
+	// 遍历本 epoch 的挑战
+	iter := storetypes.KVStorePrefixIterator(store, []byte(fmt.Sprintf("challenge:ch-%d-", epoch)))
+	defer iter.Close()
+
+	for ; iter.Valid(); iter.Next() {
+		var ch types.Challenge
+		json.Unmarshal(iter.Value(), &ch)
+
+		result := types.ChallengeResult{ChallengeID: ch.ID}
+
+		if len(ch.Reveals) == 0 {
+			// 无人响应
+			result.FailedMiners = ch.Assignees
+		} else if ch.ExpectedAnswer != "" {
+			// 精确匹配类
+			for addr, answer := range ch.Reveals {
+				if answer == ch.ExpectedAnswer {
+					result.CompletedMiners = append(result.CompletedMiners, addr)
+				} else {
+					result.FailedMiners = append(result.FailedMiners, addr)
+				}
+			}
+			result.ConsensusAnswer = ch.ExpectedAnswer
+		} else {
+			// 多数投票类
+			votes := make(map[string][]string)
+			for addr, answer := range ch.Reveals {
+				votes[answer] = append(votes[answer], addr)
+			}
+			// 找多数
+			var maxVotes int
+			var consensus string
+			for answer, addrs := range votes {
+				if len(addrs) > maxVotes {
+					maxVotes = len(addrs)
+					consensus = answer
+				}
+			}
+			result.ConsensusAnswer = consensus
+			for addr, answer := range ch.Reveals {
+				if answer == consensus {
+					result.CompletedMiners = append(result.CompletedMiners, addr)
+				} else {
+					result.FailedMiners = append(result.FailedMiners, addr)
+				}
+			}
+		}
+
+		// 未响应的矿工也记为失败
+		responded := make(map[string]bool)
+		for addr := range ch.Reveals {
+			responded[addr] = true
+		}
+		for _, addr := range ch.Assignees {
+			if !responded[addr] {
+				result.FailedMiners = append(result.FailedMiners, addr)
+			}
+		}
+
+		ch.Status = types.ChallengeStatusComplete
+		bz, _ := json.Marshal(ch)
+		store.Set(iter.Key(), bz)
+
+		results = append(results, result)
+	}
+
+	return results
+}
+
+// ──────────────────────────────────────────────
+// 辅助函数
+// ──────────────────────────────────────────────
+
+func sha256Hash(s string) string {
+	h := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(h[:])
+}
+
+func selectMiners(miners []string, k int, rng *rand.Rand) []string {
+	if len(miners) <= k {
+		return miners
+	}
+	perm := rng.Perm(len(miners))
+	result := make([]string, k)
+	for i := 0; i < k; i++ {
+		result[i] = miners[perm[i]]
+	}
+	return result
+}
+
+func generateTask(cType types.ChallengeType, rng *rand.Rand) (prompt, expected string) {
+	switch cType {
+	case types.ChallengeMath:
+		a := rng.Intn(1000)
+		b := rng.Intn(1000)
+		prompt = fmt.Sprintf("计算: %d + %d = ?", a, b)
+		expected = fmt.Sprintf("%d", a+b)
+	case types.ChallengeLogic:
+		prompt = "如果 A > B 且 B > C，那么 A 和 C 的关系是？(回答: A>C)"
+		expected = "A>C"
+	case types.ChallengeFormatConvert:
+		prompt = `将 JSON 转为 CSV: {"name":"Alice","age":30}`
+		expected = "name,age\nAlice,30"
+	case types.ChallengeSentiment:
+		prompts := []string{
+			"分析情感（正面/负面/中性）: Bitcoin突破历史新高",
+			"分析情感（正面/负面/中性）: 全球股市暴跌",
+			"分析情感（正面/负面/中性）: 天气晴朗",
+		}
+		prompt = prompts[rng.Intn(len(prompts))]
+		// 模糊匹配类无固定答案
+	case types.ChallengeTextSummary:
+		prompt = "用一句话总结：AI Agent 是一种能够自主执行任务的人工智能系统，它可以理解指令、规划步骤、使用工具并完成目标。"
+	case types.ChallengeEntityExtraction:
+		prompt = "提取人名和组织：Elon Musk announced that Tesla will invest $10 billion in AI research."
+	default:
+		prompt = fmt.Sprintf("计算: %d * %d = ?", rng.Intn(100), rng.Intn(100))
+		a := rng.Intn(100)
+		b := rng.Intn(100)
+		expected = fmt.Sprintf("%d", a*b)
+	}
+	return
+}

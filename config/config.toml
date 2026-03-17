@@ -1,0 +1,37 @@
+# ClawChain CometBFT Configuration
+# This is a template - actual config will be generated on `clawchaind init`
+
+#######################################################################
+###                   Main Base Config Options                      ###
+#######################################################################
+
+# A custom human readable name for this node
+moniker = "clawchain-node"
+
+#######################################################################
+###                 Advanced Configuration Options                  ###
+#######################################################################
+
+[rpc]
+# TCP or UNIX socket address for the RPC server to listen on
+laddr = "tcp://127.0.0.1:26657"
+
+[p2p]
+# Address to listen for incoming connections
+laddr = "tcp://0.0.0.0:26656"
+
+[consensus]
+# How long we wait for a proposal block before prevoting nil
+timeout_propose = "3s"
+# How much timeout_propose increases with each round
+timeout_propose_delta = "500ms"
+# How long we wait after receiving +2/3 prevotes for "anything"
+timeout_prevote = "1s"
+# How much the timeout_prevote increases with each round
+timeout_prevote_delta = "500ms"
+# How long we wait after receiving +2/3 precommits for "anything"
+timeout_precommit = "1s"
+# How much the timeout_precommit increases with each round
+timeout_precommit_delta = "500ms"
+# How long we wait after committing a block, before starting on the new height
+timeout_commit = "6s"

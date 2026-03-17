@@ -1,0 +1,30 @@
+# Binaries
+build/
+*.exe
+*.test
+*.out
+
+# Data directories
+.clawchain/
+.clawchaind/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dependencies
+vendor/
+
+# Test coverage
+*.cover
+coverage.txt
+
+# Logs
+*.log
