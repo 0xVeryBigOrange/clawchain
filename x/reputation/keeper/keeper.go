@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
@@ -127,43 +128,4 @@ func (k Keeper) GetAllScores(ctx sdk.Context) []types.ReputationScore {
 		scores = append(scores, s)
 	}
 	return scores
-}
-
-// fmt for event attributes
-var fmt = struct {
-	Sprintf func(string, ...interface{}) string
-}{
-	Sprintf: func(format string, args ...interface{}) string {
-		// 简单实现，避免导入 fmt 包（已被 log 用了）
-		if len(args) == 1 {
-			switch v := args[0].(type) {
-			case int32:
-				return sprintInt32(v)
-			}
-		}
-		return format
-	},
-}
-
-func sprintInt32(v int32) string {
-	if v == 0 {
-		return "0"
-	}
-	neg := v < 0
-	if neg {
-		v = -v
-	}
-	buf := make([]byte, 0, 12)
-	for v > 0 {
-		buf = append(buf, byte('0'+v%10))
-		v /= 10
-	}
-	if neg {
-		buf = append(buf, '-')
-	}
-	// reverse
-	for i, j := 0, len(buf)-1; i < j; i, j = i+1, j-1 {
-		buf[i], buf[j] = buf[j], buf[i]
-	}
-	return string(buf)
 }

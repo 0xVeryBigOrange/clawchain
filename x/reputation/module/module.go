@@ -3,48 +3,57 @@ package module
 import (
 	"encoding/json"
 
+	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+
+	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/module"
 
 	"github.com/clawchain/clawchain/x/reputation/keeper"
 	"github.com/clawchain/clawchain/x/reputation/types"
 )
 
 var (
-	
+	_ module.AppModuleBasic = AppModuleBasic{}
+	_ module.HasGenesis     = AppModule{}
+	_ module.AppModule      = AppModule{}
 )
 
+// AppModuleBasic implements module.AppModuleBasic
 type AppModuleBasic struct{}
 
 func (AppModuleBasic) Name() string { return types.ModuleName }
 
 func (AppModuleBasic) RegisterLegacyAminoCodec(_ *codec.LegacyAmino) {}
 
-func (AppModuleBasic) DefaultGenesis(cdc codec.JSONCodec) json.RawMessage {
+func (AppModuleBasic) RegisterInterfaces(_ codectypes.InterfaceRegistry) {}
+
+func (AppModuleBasic) RegisterGRPCGatewayRoutes(_ client.Context, _ *gwruntime.ServeMux) {}
+
+func (AppModuleBasic) DefaultGenesis(_ codec.JSONCodec) json.RawMessage {
 	gs := types.DefaultGenesis()
 	bz, _ := json.Marshal(gs)
 	return bz
 }
 
-func (AppModuleBasic) ValidateGenesis(_ codec.JSONCodec, _ interface{}, bz json.RawMessage) error {
+func (AppModuleBasic) ValidateGenesis(_ codec.JSONCodec, _ client.TxEncodingConfig, bz json.RawMessage) error {
 	var gs types.GenesisState
 	return json.Unmarshal(bz, &gs)
 }
 
-func (AppModuleBasic) RegisterGRPCGatewayRoutes(_ interface{}, _ interface{}) {}
-
-func (AppModuleBasic) RegisterInterfaces(_ interface{}) {}
-
+// AppModule implements module.AppModule
 type AppModule struct {
 	AppModuleBasic
 	keeper keeper.Keeper
 }
 
-func NewAppModule(keeper keeper.Keeper) AppModule {
-	return AppModule{keeper: keeper}
+func NewAppModule(k keeper.Keeper) AppModule {
+	return AppModule{keeper: k}
 }
 
-func (am AppModule) RegisterServices(_ interface{}) {}
+func (am AppModule) RegisterServices(_ module.Configurator) {}
 
 func (am AppModule) InitGenesis(ctx sdk.Context, _ codec.JSONCodec, data json.RawMessage) {
 	var gs types.GenesisState
