@@ -21,6 +21,9 @@ Thumbs.db
 
 # Dependencies
 vendor/
+node_modules/
+website/node_modules/
+website/.next/
 
 # Test coverage
 *.cover
