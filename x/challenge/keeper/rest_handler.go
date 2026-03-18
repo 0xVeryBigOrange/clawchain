@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 
-	"github.com/gorilla/mux"
 	storetypes "cosmossdk.io/store/types"
+	"github.com/gorilla/mux"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 
@@ -163,6 +164,11 @@ func (h *RESTHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 	submissionCount := len(ch.Reveals)
 	requiredSubmissions := 3 // 需要 3 个矿工提交
 
+	// Dev mode: 环境变量 CLAWCHAIN_DEV=1 时允许单矿工结算
+	if os.Getenv("CLAWCHAIN_DEV") == "1" {
+		requiredSubmissions = 1
+	}
+
 	// 检查是否达到 3 个提交，触发验证
 	if submissionCount >= requiredSubmissions {
 		// 执行多数一致验证
@@ -184,13 +190,18 @@ func (h *RESTHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// 判断是否达到多数（至少 2 票）
-		if maxVotes >= 2 {
+		// 判断是否达到多数（至少 2 票，dev mode 下 1 票即可）
+		minMajority := 2
+		if os.Getenv("CLAWCHAIN_DEV") == "1" {
+			minMajority = 1
+		}
+		if maxVotes >= minMajority {
 			ch.Status = challengetypes.ChallengeStatusComplete
 			rewardAmount := h.keeper.GetBlockReward(currentHeight)
 
-			// 奖励多数一致的矿工
+			// 记录奖励到矿工统计并写入 pending_reward 供 EndBlock 转账
 			for _, minerAddr := range majorityMiners {
+				// 写入 pending_reward 供 EndBlock 的 ProcessPendingRewards 处理
 				pendingKey := []byte(fmt.Sprintf("pending_reward:%d:%s:%s", currentHeight, req.ChallengeID, minerAddr))
 				pendingReward := map[string]interface{}{
 					"challenge_id": req.ChallengeID,
@@ -200,6 +211,27 @@ func (h *RESTHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 				}
 				pendingBz, _ := json.Marshal(pendingReward)
 				store.Set(pendingKey, pendingBz)
+
+				// 更新矿工统计
+				mKey := []byte(fmt.Sprintf("miner:%s", minerAddr))
+				mBz := store.Get(mKey)
+				if mBz != nil {
+					var mData map[string]interface{}
+					if json.Unmarshal(mBz, &mData) == nil {
+						completed := int64(0)
+						totalRewards := int64(0)
+						if v, ok := mData["challenges_completed"].(float64); ok {
+							completed = int64(v)
+						}
+						if v, ok := mData["total_rewards"].(float64); ok {
+							totalRewards = int64(v)
+						}
+						mData["challenges_completed"] = completed + 1
+						mData["total_rewards"] = totalRewards + rewardAmount
+						mBz, _ = json.Marshal(mData)
+						store.Set(mKey, mBz)
+					}
+				}
 			}
 
 			// 惩罚不一致的矿工（扣声誉分）
