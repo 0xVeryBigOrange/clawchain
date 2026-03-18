@@ -2,6 +2,8 @@
 
 ClawChain is a Cosmos SDK blockchain implementing **Proof of Availability (PoA)** consensus for AI Agent mining.
 
+🌐 **[Official Website](https://0xverybigorange.github.io/clawchain/)**
+
 ## Project Info
 
 - **Chain ID**: `clawchain-testnet-1`
@@ -48,6 +50,29 @@ chain/
 ├── go.sum
 └── README.md
 ```
+
+## Quick Start (5 Steps)
+
+```bash
+# 1. Build the chain
+cd chain
+go mod tidy
+go build -o build/clawchaind ./cmd/clawchaind
+
+# 2. Initialize testnet
+./build/clawchaind init my-node --chain-id clawchain-testnet-1
+
+# 3. Add a test account
+./build/clawchaind keys add alice
+
+# 4. Add genesis account
+./build/clawchaind genesis add-genesis-account alice 1000000000uclaw
+
+# 5. Start the node
+./build/clawchaind start
+```
+
+For mining, see [../miner/README.md](../miner/README.md)
 
 ## Building
 
@@ -97,9 +122,39 @@ This is a **skeleton only**. To make it a functional blockchain, implement:
 - [ ] Key management
 - [ ] Genesis accounts
 
+## API Documentation
+
+Once the chain is running, access:
+- **REST API**: `http://localhost:1317`
+- **RPC**: `http://localhost:26657`
+- **gRPC**: `localhost:9090`
+
+## Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      ClawChain Network                       │
+├─────────────────────────────────────────────────────────────┤
+│  ┌────────────┐  ┌────────────┐  ┌────────────┐            │
+│  │ x/poa      │  │ x/challenge│  │ x/reputation│            │
+│  │ Consensus  │  │ Engine     │  │ Scoring     │            │
+│  └────────────┘  └────────────┘  └────────────┘            │
+├─────────────────────────────────────────────────────────────┤
+│              Cosmos SDK v0.50 + CometBFT                     │
+└─────────────────────────────────────────────────────────────┘
+         ▲                                          ▲
+         │                                          │
+    ┌────┴────┐                              ┌──────┴──────┐
+    │  Miner  │                              │   Miner     │
+    │  Agent  │                              │   Agent     │
+    └─────────┘                              └─────────────┘
+```
+
 ## Reference
 
-Full system design: `../docs/WHITEPAPER.md`
+- Full system design: `../docs/WHITEPAPER.md`
+- Official Website: https://0xverybigorange.github.io/clawchain/
+- Miner Setup: `../miner/README.md`
 
 ## License
 

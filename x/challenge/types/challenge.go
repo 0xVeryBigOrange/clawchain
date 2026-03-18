@@ -4,15 +4,17 @@ package types
 type ChallengeType string
 
 const (
-	ChallengeTextSummary      ChallengeType = "text_summary"
-	ChallengeSentiment        ChallengeType = "sentiment"
-	ChallengeEntityExtraction ChallengeType = "entity_extraction"
-	ChallengeFormatConvert    ChallengeType = "format_convert"
-	ChallengeMath             ChallengeType = "math"
-	ChallengeLogic            ChallengeType = "logic"
-	ChallengeTextTransform    ChallengeType = "text_transform"  // 文本转换（大写等）
-	ChallengeJSONExtract      ChallengeType = "json_extract"    // JSON 提取
-	ChallengeHash             ChallengeType = "hash"            // 哈希计算
+	ChallengeTextSummary      ChallengeType = "text_summary"       // 文本摘要（需要 LLM）
+	ChallengeSentiment        ChallengeType = "sentiment"          // 情感分析（需要 LLM）
+	ChallengeTranslation      ChallengeType = "translation"        // 翻译（需要 LLM）
+	ChallengeClassification   ChallengeType = "classification"     // 文本分类（需要 LLM）
+	ChallengeEntityExtraction ChallengeType = "entity_extraction"  // 实体抽取（需要 LLM）
+	ChallengeFormatConvert    ChallengeType = "format_convert"     // 格式转换
+	ChallengeMath             ChallengeType = "math"               // 数学计算
+	ChallengeLogic            ChallengeType = "logic"              // 逻辑推理（需要 LLM）
+	ChallengeTextTransform    ChallengeType = "text_transform"     // 文本转换（大写等）
+	ChallengeJSONExtract      ChallengeType = "json_extract"       // JSON 提取
+	ChallengeHash             ChallengeType = "hash"               // 哈希计算
 )
 
 // ChallengeStatus 挑战状态

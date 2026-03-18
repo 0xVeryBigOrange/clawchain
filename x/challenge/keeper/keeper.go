@@ -46,6 +46,75 @@ func (k Keeper) Logger(ctx sdk.Context) log.Logger {
 	return ctx.Logger().With("module", "x/"+types.ModuleName)
 }
 
+// ========================================
+// LLM 挑战内容池
+// ========================================
+
+// 文本摘要挑战池（200-500字文章）
+var textSummaryPool = []string{
+	"人工智能（Artificial Intelligence，简称AI）是计算机科学的一个分支，它企图了解智能的实质，并生产出一种新的能以人类智能相似的方式做出反应的智能机器。该领域的研究包括机器人、语言识别、图像识别、自然语言处理和专家系统等。AI的核心问题包括建造能够跟人类似甚至超卓的推理、知识、规划、学习、交流、感知、移物、使用工具和操控机械的能力等。当前AI技术已在医疗诊断、金融分析、自动驾驶、智能客服等领域得到广泛应用。",
+	"区块链是一种分布式数据存储、点对点传输、共识机制、加密算法等计算机技术的新型应用模式。本质上是一个去中心化的数据库，同时作为比特币的底层技术，是一串使用密码学方法相关联产生的数据块。每个数据块中包含了一批次比特币网络交易的信息，用于验证其信息的有效性和生成下一个区块。区块链技术的特点包括去中心化、开放性、自治性、信息不可篡改、匿名性等。目前在金融、供应链管理、数字版权、物联网等领域都有应用探索。",
+	"量子计算是一种遵循量子力学规律调控量子信息单元进行计算的新型计算模式。传统计算机使用比特（0或1）作为信息的基本单位，而量子计算机使用量子比特（可以同时处于0和1的叠加态）。这使得量子计算机在处理某些特定问题时，理论上可以达到指数级的加速。量子计算在密码破解、药物研发、材料科学、优化问题等领域展现出巨大潜力。目前IBM、Google、中国科学技术大学等机构都在积极研发量子计算机，但距离大规模实用化还有很长的路要走。",
+	"Web3是下一代互联网的愿景，它基于区块链技术，旨在创建一个去中心化的网络。与Web2（当前互联网）不同，Web3中用户拥有自己的数据和数字资产，不再依赖于中心化的平台。Web3的核心特征包括：去中心化身份（DID）、加密货币钱包、智能合约、去中心化应用（DApp）等。Web3有望改变社交媒体、游戏、金融、内容创作等多个领域，让用户真正成为互联网的主人而不是产品。然而，Web3也面临技术复杂度高、用户体验不佳、监管不明确等挑战。",
+	"机器学习是人工智能的一个分支，它使计算机能够在没有明确编程的情况下学习。机器学习算法通过分析大量数据来识别模式，并据此做出预测或决策。主要分为监督学习、无监督学习和强化学习三大类。深度学习是机器学习的一个子集，它使用多层神经网络来处理复杂的数据模式。机器学习已经在图像识别、语音识别、推荐系统、自然语言处理等领域取得了突破性进展。随着算力提升和数据积累，机器学习的应用场景还在不断扩大，但也面临数据隐私、算法偏见等伦理挑战。",
+}
+
+// 情感分析挑战池（正面/负面/中性）
+var sentimentPool = []struct {
+	text     string
+	expected string
+}{
+	{"比特币突破历史新高，加密市场迎来牛市", "正面"},
+	{"全球股市暴跌，投资者恐慌性抛售", "负面"},
+	{"今天天气晴朗，适合出门散步", "正面"},
+	{"项目进度延期，团队压力很大", "负面"},
+	{"会议按计划进行，各方达成共识", "中性"},
+	{"产品获得用户高度评价，销量大增", "正面"},
+	{"系统出现严重漏洞，数据泄露风险高", "负面"},
+	{"公司宣布裁员计划，员工士气低落", "负面"},
+	{"新技术发布，行业格局可能改变", "中性"},
+	{"研究取得重大突破，论文发表在顶级期刊", "正面"},
+}
+
+// 翻译挑战池（英译中）
+var translationPool = []struct {
+	english string
+	chinese string
+}{
+	{"The quick brown fox jumps over the lazy dog", "敏捷的棕色狐狸跳过懒狗"},
+	{"Artificial intelligence is transforming the world", "人工智能正在改变世界"},
+	{"Blockchain technology enables decentralized applications", "区块链技术使去中心化应用成为可能"},
+	{"Machine learning algorithms can predict future trends", "机器学习算法可以预测未来趋势"},
+	{"Cryptocurrency adoption is growing rapidly worldwide", "加密货币在全球范围内的采用正在快速增长"},
+	{"Quantum computing promises exponential speedup", "量子计算承诺指数级加速"},
+	{"Smart contracts automate agreement execution", "智能合约自动化协议执行"},
+	{"Data privacy is a fundamental human right", "数据隐私是一项基本人权"},
+	{"Cloud computing provides scalable infrastructure", "云计算提供可扩展的基础设施"},
+	{"Open source software drives innovation", "开源软件推动创新"},
+}
+
+// 文本分类挑战池（科技/金融/体育/娱乐/政治）
+var classificationPool = []struct {
+	text     string
+	expected string
+}{
+	{"OpenAI发布GPT-5模型，性能大幅提升", "科技"},
+	{"美联储宣布加息25个基点，市场反应平淡", "金融"},
+	{"世界杯决赛阿根廷夺冠，梅西圆梦", "体育"},
+	{"新电影票房破10亿，刷新历史纪录", "娱乐"},
+	{"联合国安理会通过新决议，呼吁停火", "政治"},
+	{"SpaceX成功发射星际飞船，马斯克庆祝", "科技"},
+	{"比特币价格突破10万美元，创历史新高", "金融"},
+	{"NBA总决赛进入抢七，悬念丛生", "体育"},
+	{"奥斯卡颁奖典礼落幕，最佳影片揭晓", "娱乐"},
+	{"欧盟峰会讨论气候变化政策", "政治"},
+	{"量子计算机实现新突破，算力提升百倍", "科技"},
+	{"全球股市集体大涨，道指创新高", "金融"},
+	{"奥运会中国代表团夺得金牌榜第一", "体育"},
+	{"顶级歌手演唱会门票秒光", "娱乐"},
+	{"G20峰会在京召开，讨论全球经济", "政治"},
+}
+
 // InitGenesis 初始化创世
 func (k Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) {
 	k.params = gs.Params
@@ -78,16 +147,17 @@ func (k Keeper) GeneratePublicChallenge(ctx sdk.Context, epoch uint64) {
 	}
 	rng := rand.New(rand.NewSource(seed))
 
-	// 随机选择挑战类型（4种类型：数学、文本、逻辑、JSON、哈希）
+	// 随机选择挑战类型（优先 LLM 挑战）
 	challengeTypes := []struct {
 		ctype  types.ChallengeType
 		weight int
 	}{
-		{types.ChallengeMath, 3},           // 数学题权重高
-		{types.ChallengeTextTransform, 2},  // 文本处理
-		{types.ChallengeLogic, 2},          // 逻辑推理
-		{types.ChallengeJSONExtract, 2},    // JSON 提取
-		{types.ChallengeHash, 1},           // 哈希计算
+		{types.ChallengeTextSummary, 5},      // 文本摘要（需要 LLM）
+		{types.ChallengeSentiment, 5},        // 情感分析（需要 LLM）
+		{types.ChallengeTranslation, 5},      // 翻译（需要 LLM）
+		{types.ChallengeClassification, 5},   // 文本分类（需要 LLM）
+		{types.ChallengeMath, 2},             // 数学题（可本地计算）
+		{types.ChallengeLogic, 3},            // 逻辑推理（需要 LLM）
 	}
 
 	// 加权随机选择
@@ -106,10 +176,35 @@ func (k Keeper) GeneratePublicChallenge(ctx sdk.Context, epoch uint64) {
 		}
 	}
 
-	// 根据类型生成挑战
+	// 根据类型从内容池生成挑战
 	var prompt, answer string
 	switch selectedType {
+	case types.ChallengeTextSummary:
+		// 文本摘要：从池中随机选择
+		text := textSummaryPool[rng.Intn(len(textSummaryPool))]
+		prompt = fmt.Sprintf("将以下文章摘要为不超过50字：\n\n%s", text)
+		answer = "" // 无固定答案，由多数投票决定
+
+	case types.ChallengeSentiment:
+		// 情感分析：从池中随机选择
+		item := sentimentPool[rng.Intn(len(sentimentPool))]
+		prompt = fmt.Sprintf("判断以下评论的情感倾向（正面/负面/中性）：%s", item.text)
+		answer = item.expected
+
+	case types.ChallengeTranslation:
+		// 翻译：从池中随机选择
+		item := translationPool[rng.Intn(len(translationPool))]
+		prompt = fmt.Sprintf("将以下英文翻译为中文：%s", item.english)
+		answer = item.chinese
+
+	case types.ChallengeClassification:
+		// 文本分类：从池中随机选择
+		item := classificationPool[rng.Intn(len(classificationPool))]
+		prompt = fmt.Sprintf("将以下文本分类到最合适的类别（科技/金融/体育/娱乐/政治）：%s", item.text)
+		answer = item.expected
+
 	case types.ChallengeMath:
+		// 数学题：动态生成
 		a := rng.Intn(900) + 100
 		b := rng.Intn(900) + 100
 		ops := []string{"+", "-", "*"}
@@ -126,38 +221,10 @@ func (k Keeper) GeneratePublicChallenge(ctx sdk.Context, epoch uint64) {
 		prompt = fmt.Sprintf("计算 %d %s %d 的结果", a, op, b)
 		answer = fmt.Sprintf("%d", result)
 
-	case types.ChallengeTextTransform:
-		texts := []string{"hello world", "clawchain mining", "distributed ai"}
-		text := texts[rng.Intn(len(texts))]
-		prompt = fmt.Sprintf("将以下文本转为大写: %s", text)
-		answer = fmt.Sprintf("%s", fmt.Sprintf("%s", text))
-		// 实际答案需要转大写
-		var upper []rune
-		for _, r := range answer {
-			if r >= 'a' && r <= 'z' {
-				upper = append(upper, r-32)
-			} else {
-				upper = append(upper, r)
-			}
-		}
-		answer = string(upper)
-
 	case types.ChallengeLogic:
-		prompt = "如果 A > B 且 B > C，那么 A 和 C 的关系是？"
-		answer = "A > C"
-
-	case types.ChallengeJSONExtract:
-		names := []string{"Alice", "Bob", "Charlie"}
-		ages := []int{25, 30, 35}
-		idx := rng.Intn(len(names))
-		prompt = fmt.Sprintf(`从 {"name":"%s","age":%d} 中提取 name 的值`, names[idx], ages[idx])
-		answer = names[idx]
-
-	case types.ChallengeHash:
-		prompt = "计算 'clawchain' 的 SHA256 前 8 位"
-		// 预计算固定答案
-		h := sha256.Sum256([]byte("clawchain"))
-		answer = hex.EncodeToString(h[:])[:8]
+		// 逻辑推理
+		prompt = "如果 A > B 且 B > C，那么 A 和 C 的关系是？(回答格式: A>C)"
+		answer = "A>C"
 
 	default:
 		// fallback 数学题
@@ -187,8 +254,8 @@ func (k Keeper) GeneratePublicChallenge(ctx sdk.Context, epoch uint64) {
 	k.Logger(ctx).Info("生成公开挑战",
 		"id", challenge.ID,
 		"type", selectedType,
-		"prompt", prompt,
-		"answer", answer)
+		"prompt", prompt[:50]+"...",
+		"has_expected_answer", answer != "")
 }
 
 // GetActiveMiners 获取活跃矿工列表

@@ -156,50 +156,87 @@ func (h *RESTHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 检查答案是否正确
-	correct := false
-	if ch.ExpectedAnswer != "" {
-		correct = strings.TrimSpace(req.Answer) == strings.TrimSpace(ch.ExpectedAnswer)
-	} else {
-		// 简化：无标准答案的也算对
-		correct = true
-	}
-
-	// 更新挑战
+	// 记录答案（不立即判断对错）
 	ch.Reveals[req.MinerAddr] = req.Answer
 	ch.Status = challengetypes.ChallengeStatusReveal
-	if correct {
-		ch.Winner = req.MinerAddr
+
+	submissionCount := len(ch.Reveals)
+	requiredSubmissions := 3 // 需要 3 个矿工提交
+
+	// 检查是否达到 3 个提交，触发验证
+	if submissionCount >= requiredSubmissions {
+		// 执行多数一致验证
+		answerVotes := make(map[string][]string) // answer -> []minerAddr
+		for minerAddr, answer := range ch.Reveals {
+			normalizedAnswer := strings.TrimSpace(strings.ToLower(answer))
+			answerVotes[normalizedAnswer] = append(answerVotes[normalizedAnswer], minerAddr)
+		}
+
+		// 找到多数答案（至少 2/3）
+		var majorityAnswer string
+		var majorityMiners []string
+		maxVotes := 0
+		for answer, miners := range answerVotes {
+			if len(miners) > maxVotes {
+				maxVotes = len(miners)
+				majorityAnswer = answer
+				majorityMiners = miners
+			}
+		}
+
+		// 判断是否达到多数（至少 2 票）
+		if maxVotes >= 2 {
+			ch.Status = challengetypes.ChallengeStatusComplete
+			rewardAmount := h.keeper.GetBlockReward(currentHeight)
+
+			// 奖励多数一致的矿工
+			for _, minerAddr := range majorityMiners {
+				pendingKey := []byte(fmt.Sprintf("pending_reward:%d:%s:%s", currentHeight, req.ChallengeID, minerAddr))
+				pendingReward := map[string]interface{}{
+					"challenge_id": req.ChallengeID,
+					"miner_addr":   minerAddr,
+					"amount":       rewardAmount,
+					"height":       currentHeight,
+				}
+				pendingBz, _ := json.Marshal(pendingReward)
+				store.Set(pendingKey, pendingBz)
+			}
+
+			// 惩罚不一致的矿工（扣声誉分）
+			for minerAddr, answer := range ch.Reveals {
+				normalizedAnswer := strings.TrimSpace(strings.ToLower(answer))
+				if normalizedAnswer != majorityAnswer {
+					// 更新矿工失败记录
+					minerKey := []byte(fmt.Sprintf("miner:%s", minerAddr))
+					minerBz := store.Get(minerKey)
+					if minerBz != nil {
+						var minerData map[string]interface{}
+						json.Unmarshal(minerBz, &minerData)
+						
+						failed := int64(0)
+						if v, ok := minerData["challenges_failed"].(float64); ok {
+							failed = int64(v)
+						}
+						minerData["challenges_failed"] = failed + 1
+						
+						minerBz, _ = json.Marshal(minerData)
+						store.Set(minerKey, minerBz)
+					}
+				}
+			}
+		}
 	}
 
 	bz, _ = json.Marshal(ch)
 	store.Set(key, bz)
 
-	// 计算奖励（使用减半逻辑）
-	rewardAmount := int64(0)
-	if correct {
-		rewardAmount = h.keeper.GetBlockReward(currentHeight)
-		
-		// 添加待结算奖励（EndBlock 时转账）
-		pendingKey := []byte(fmt.Sprintf("pending_reward:%d:%s:%s", currentHeight, req.ChallengeID, req.MinerAddr))
-		pendingReward := map[string]interface{}{
-			"challenge_id": req.ChallengeID,
-			"miner_addr":   req.MinerAddr,
-			"amount":       rewardAmount,
-			"height":       currentHeight,
-		}
-		pendingBz, _ := json.Marshal(pendingReward)
-		store.Set(pendingKey, pendingBz)
-	}
-	
-	reward := sdk.NewCoins(sdk.NewInt64Coin("uclaw", rewardAmount))
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"correct": correct,
-		"reward":  reward.String(),
-		"message": "reward will be transferred in next block",
+		"success":            true,
+		"submission_count":   submissionCount,
+		"required_submissions": requiredSubmissions,
+		"status":             ch.Status,
+		"message":            "answer recorded, waiting for other miners to submit",
 	})
 }
 
