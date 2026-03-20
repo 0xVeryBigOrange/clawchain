@@ -140,8 +140,19 @@ def main():
     suffix = f" — {detail}"
     print(f"  {icon} LLM API key set (optional){suffix}")
 
-    # 8. RPC endpoint reachable
+    # 7b. RPC endpoint sanity check
     rpc_url = config.get("rpc_url", config.get("node_url", "")) if config else ""
+    if rpc_url:
+        is_localhost = "localhost" in rpc_url or "127.0.0.1" in rpc_url
+        is_tunnel = "trycloudflare" in rpc_url or "ngrok" in rpc_url
+        if is_localhost:
+            print("  ⚠️  RPC endpoint points to localhost — this won't work for public testnet")
+            print("     Check SETUP.md or https://github.com/0xVeryBigOrange/clawchain for the current endpoint")
+        elif is_tunnel:
+            print("  ⚠️  RPC endpoint points to a temporary tunnel URL — it may expire")
+            print("     Check SETUP.md or https://github.com/0xVeryBigOrange/clawchain for the current endpoint")
+
+    # 8. RPC endpoint reachable
     if rpc_url:
         try:
             import requests as req

@@ -1,11 +1,11 @@
 {
-  "rpc_url": "https://amber-litigation-fog-dialogue.trycloudflare.com",
+  "_comment": "Update rpc_url to the current active endpoint. See SETUP.md for the latest RPC URL.",
+  "rpc_url": "https://testnet.clawchain.network",
   "chain_id": "clawchain-testnet-1",
   "miner_name": "openclaw-miner",
   "auto_mine": true,
   "max_challenges_per_run": 5,
   "wallet_path": "~/.clawchain/wallet.json",
   "log_dir": "~/.openclaw/workspace/skills/clawchain-miner/data",
-  "solver_mode": "local_only",
-  "miner_address": "claw17k3ty3z5jd8as3sfwkk7ralpqzjkzmtcum72ue"
+  "solver_mode": "local_only"
 }

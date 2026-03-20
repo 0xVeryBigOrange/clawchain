@@ -2,7 +2,7 @@
 
 All notable changes to ClawChain will be documented in this file.
 
-## [v0.1.0-testnet] - 2026-03-20
+## [v0.2.0] - 2026-03-20
 
 ### Added
 - Independent mining service (Python/SQLite) — fully decoupled from chain binary
@@ -40,4 +40,6 @@ All notable changes to ClawChain will be documented in this file.
 - Public testnet endpoint
 - secp256k1 signature verification
 - Full Cosmos SDK module implementation
+- Task Marketplace
+l Cosmos SDK module implementation
 - Task Marketplace

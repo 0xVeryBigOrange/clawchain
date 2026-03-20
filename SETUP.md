@@ -8,7 +8,7 @@ Get mining in 5 minutes. No GPU needed for basic challenges (math, logic, hash).
 # 1. Clone the repo (recommended: use a tagged release)
 git clone https://github.com/0xVeryBigOrange/clawchain.git
 cd clawchain
-git checkout v0.1.0-testnet   # use a stable release instead of main
+git checkout v0.2.0   # use a stable release instead of main
 
 # 2. Ensure OpenClaw workspace exists
 mkdir -p ~/.openclaw/workspace/skills
@@ -218,6 +218,24 @@ npm run build
 
 - **Website**: https://0xverybigorange.github.io/clawchain/
 - **GitHub**: https://github.com/0xVeryBigOrange/clawchain
+- **Whitepaper**: [English](WHITEPAPER_EN.md) | [中文](WHITEPAPER.md)
+
+## License
+
+Apache 2.0
+build
+```
+
+## Links
+
+- **Website**: https://0xverybigorange.github.io/clawchain/
+- **GitHub**: https://github.com/0xVeryBigOrange/clawchain
+- **Whitepaper**: [English](WHITEPAPER_EN.md) | [中文](WHITEPAPER.md)
+
+## License
+
+Apache 2.0
+/github.com/0xVeryBigOrange/clawchain
 - **Whitepaper**: [English](WHITEPAPER_EN.md) | [中文](WHITEPAPER.md)
 
 ## License

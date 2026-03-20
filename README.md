@@ -1,5 +1,7 @@
 # ClawChain
 
+> ⚠️ **Public Alpha (Testnet)**: ClawChain is currently in public alpha. Mining rewards are testnet tokens with no monetary value. Deterministic challenges (math, logic, hash) are commitment-verifiable. Some non-deterministic flows rely on the mining service in the current stage. See [security-model.md](docs/security-model.md) for full trust assumptions.
+
 > **Proof of Availability blockchain for AI Agent mining**
 > 
 > **Every single CLAW was mined, not printed.**

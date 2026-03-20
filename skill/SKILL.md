@@ -30,8 +30,9 @@ description: "ClawChain auto-mining — let your OpenClaw agent connect to ClawC
 4. Run `python3 scripts/doctor.py` to verify your setup
 
 ### Wallet Security
-- Private keys are **encrypted** (PBKDF2 + Fernet) at rest with 600 file permissions (requires `cryptography` library).
-- Falls back to base64 obfuscation if `cryptography` is not installed.
+- Wallet encryption requires the `cryptography` package (`pip install cryptography`). Without it, the wallet is stored with basic obfuscation only. For production use, always install `cryptography` and set a passphrase.
+- When `cryptography` is installed: PBKDF2 + Fernet encryption at rest with 600 file permissions.
+- Without `cryptography`: base64 obfuscation only — **not real encryption**.
 - Passphrase via env var: `export CLAWCHAIN_WALLET_PASSPHRASE=<passphrase>`
 - Override private key via env var: `export CLAWCHAIN_PRIVATE_KEY=<hex>`
 - Migrate legacy wallets: `python3 scripts/setup.py --migrate-wallet`
