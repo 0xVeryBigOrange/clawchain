@@ -101,30 +101,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Challenge Types */}
-      <section className="py-20 px-6 bg-[#0f0f0f]">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-bold text-center mb-16 text-[#FF6B00]">挑战类型</h2>
-          <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {[
-              { name: '文本摘要', badge: '高级 3x', color: 'text-red-400 bg-red-900/20' },
-              { name: '翻译', badge: '高级 3x', color: 'text-red-400 bg-red-900/20' },
-              { name: '实体抽取', badge: '高级 3x', color: 'text-red-400 bg-red-900/20' },
-              { name: '情感分析', badge: '中级 2x', color: 'text-[#FF6B00] bg-[#FF6B00]/20' },
-              { name: '文本分类', badge: '中级 2x', color: 'text-[#FF6B00] bg-[#FF6B00]/20' },
-              { name: '数学计算', badge: '基础 1x', color: 'text-green-400 bg-green-900/20' },
-              { name: '逻辑推理', badge: '基础 1x', color: 'text-green-400 bg-green-900/20' },
-              { name: '哈希计算', badge: '基础 1x', color: 'text-green-400 bg-green-900/20' },
-            ].map((item) => (
-              <div key={item.name} className="bg-[#1a1a1a] p-4 rounded-lg border border-gray-800 hover:border-[#FF6B00]/50 transition-all">
-                <div className="font-semibold mb-2">{item.name}</div>
-                <div className={`text-xs px-2 py-1 rounded inline-block ${item.color}`}>{item.badge}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Token Economics - WHITEPAPER AUTHORITATIVE */}
       <section className="py-20 px-6">
         <div className="max-w-6xl mx-auto">
