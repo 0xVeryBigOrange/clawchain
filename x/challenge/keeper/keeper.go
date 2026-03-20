@@ -153,8 +153,47 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 	}
 }
 
-// GeneratePublicChallenge 生成一个公开挑战（任何矿工可参与）
+// CountActiveMiners 统计 store 中活跃矿工数
+func (k Keeper) CountActiveMiners(ctx sdk.Context) int {
+	store := ctx.KVStore(k.storeKey)
+	count := 0
+
+	iter := storetypes.KVStorePrefixIterator(store, []byte("miner:"))
+	defer iter.Close()
+
+	for ; iter.Valid(); iter.Next() {
+		var minerData map[string]interface{}
+		if err := json.Unmarshal(iter.Value(), &minerData); err != nil {
+			continue
+		}
+		if status, ok := minerData["status"].(string); ok && status == "active" {
+			count++
+		}
+	}
+	return count
+}
+
+// CalcNumChallenges 根据活跃矿工数计算本 epoch 应生成的挑战数
+// 公式: max(1, min(activeMiners/3, 10))
+func CalcNumChallenges(activeMiners int) int {
+	if activeMiners <= 0 {
+		return 1
+	}
+	n := activeMiners / 3
+	if n < 1 {
+		n = 1
+	}
+	if n > 10 {
+		n = 10
+	}
+	return n
+}
+
+// GeneratePublicChallenge 根据活跃矿工数动态生成多个公开挑战
 func (k Keeper) GeneratePublicChallenge(ctx sdk.Context, epoch uint64) {
+	activeCount := k.CountActiveMiners(ctx)
+	numChallenges := CalcNumChallenges(activeCount)
+
 	blockHash := ctx.HeaderHash()
 	seed := int64(epoch)
 	if len(blockHash) > 0 {
@@ -164,132 +203,164 @@ func (k Keeper) GeneratePublicChallenge(ctx sdk.Context, epoch uint64) {
 	}
 	rng := rand.New(rand.NewSource(seed))
 
-	// 随机选择挑战类型（优先 LLM 挑战）
-	challengeTypes := []struct {
+	// 所有可用挑战类型（加权）
+	allTypes := []struct {
 		ctype  types.ChallengeType
 		weight int
 	}{
-		{types.ChallengeTextSummary, 5},      // 文本摘要（需要 LLM）
-		{types.ChallengeSentiment, 5},        // 情感分析（需要 LLM）
-		{types.ChallengeTranslation, 5},      // 翻译（需要 LLM）
-		{types.ChallengeClassification, 5},   // 文本分类（需要 LLM）
-		{types.ChallengeMath, 2},             // 数学题（可本地计算）
-		{types.ChallengeLogic, 3},            // 逻辑推理（需要 LLM）
+		{types.ChallengeTextSummary, 5},
+		{types.ChallengeSentiment, 5},
+		{types.ChallengeTranslation, 5},
+		{types.ChallengeClassification, 5},
+		{types.ChallengeMath, 2},
+		{types.ChallengeLogic, 3},
 	}
 
-	// 加权随机选择
-	totalWeight := 0
-	for _, ct := range challengeTypes {
-		totalWeight += ct.weight
-	}
-	roll := rng.Intn(totalWeight)
-	var selectedType types.ChallengeType
-	cumulative := 0
-	for _, ct := range challengeTypes {
-		cumulative += ct.weight
-		if roll < cumulative {
-			selectedType = ct.ctype
-			break
-		}
-	}
-
-	// 根据类型从内容池生成挑战
-	var prompt, answer string
-	switch selectedType {
-	case types.ChallengeTextSummary:
-		// 文本摘要：从池中随机选择
-		text := textSummaryPool[rng.Intn(len(textSummaryPool))]
-		prompt = fmt.Sprintf("将以下文章摘要为不超过50字：\n\n%s", text)
-		answer = "" // 无固定答案，由多数投票决定
-
-	case types.ChallengeSentiment:
-		// 情感分析：从池中随机选择
-		item := sentimentPool[rng.Intn(len(sentimentPool))]
-		prompt = fmt.Sprintf("判断以下评论的情感倾向（正面/负面/中性）：%s", item.text)
-		answer = item.expected
-
-	case types.ChallengeTranslation:
-		// 翻译：从池中随机选择
-		item := translationPool[rng.Intn(len(translationPool))]
-		prompt = fmt.Sprintf("将以下英文翻译为中文：%s", item.english)
-		answer = item.chinese
-
-	case types.ChallengeClassification:
-		// 文本分类：从池中随机选择
-		item := classificationPool[rng.Intn(len(classificationPool))]
-		prompt = fmt.Sprintf("将以下文本分类到最合适的类别（科技/金融/体育/娱乐/政治）：%s", item.text)
-		answer = item.expected
-
-	case types.ChallengeMath:
-		// 数学题：动态生成
-		a := rng.Intn(900) + 100
-		b := rng.Intn(900) + 100
-		ops := []string{"+", "-", "*"}
-		op := ops[rng.Intn(len(ops))]
-		var result int
-		switch op {
-		case "+":
-			result = a + b
-		case "-":
-			result = a - b
-		case "*":
-			result = a * b
-		}
-		prompt = fmt.Sprintf("计算 %d %s %d 的结果", a, op, b)
-		answer = fmt.Sprintf("%d", result)
-
-	case types.ChallengeLogic:
-		// 逻辑推理
-		prompt = "如果 A > B 且 B > C，那么 A 和 C 的关系是？(回答格式: A>C)"
-		answer = "A>C"
-
-	default:
-		// fallback 数学题
-		a := rng.Intn(100) + 1
-		b := rng.Intn(100) + 1
-		prompt = fmt.Sprintf("计算 %d + %d 的结果", a, b)
-		answer = fmt.Sprintf("%d", a+b)
-	}
-
-	tier := types.GetTaskTier(selectedType)
-
-	// Spot Check: 10% 概率
-	isSpotCheck := rng.Intn(10) == 0
-	knownAnswer := ""
-	if isSpotCheck && answer != "" {
-		knownAnswer = answer
-	} else if isSpotCheck && answer == "" {
-		// 无固定答案的题目不适合做 spot check
-		isSpotCheck = false
-	}
-
-	challenge := types.Challenge{
-		ID:             fmt.Sprintf("ch-%d-0", epoch),
-		Epoch:          epoch,
-		Type:           selectedType,
-		Tier:           tier,
-		Prompt:         prompt,
-		ExpectedAnswer: answer,
-		Assignees:      []string{}, // 公开挑战，任何人可提交
-		Status:         types.ChallengeStatusPending,
-		CreatedHeight:  ctx.BlockHeight(),
-		Commits:        make(map[string]string),
-		Reveals:        make(map[string]string),
-		IsSpotCheck:    isSpotCheck,
-		KnownAnswer:    knownAnswer,
-	}
+	// 选择 numChallenges 个不重复类型（如果挑战数 > 类型数则允许重复）
+	usedTypes := make(map[types.ChallengeType]bool)
 
 	store := ctx.KVStore(k.storeKey)
-	bz, _ := json.Marshal(challenge)
-	store.Set([]byte(fmt.Sprintf("challenge:%s", challenge.ID)), bz)
 
-	k.Logger(ctx).Info("生成公开挑战",
-		"id", challenge.ID,
-		"type", selectedType,
-		"tier", tier,
-		"is_spot_check", isSpotCheck,
-		"prompt", prompt[:50]+"...",
-		"has_expected_answer", answer != "")
+	for idx := 0; idx < numChallenges; idx++ {
+		// 加权随机选择（尽量不重复）
+		var selectedType types.ChallengeType
+		if idx < len(allTypes) {
+			// 尝试选不重复的
+			for attempts := 0; attempts < 20; attempts++ {
+				totalWeight := 0
+				for _, ct := range allTypes {
+					totalWeight += ct.weight
+				}
+				roll := rng.Intn(totalWeight)
+				cumulative := 0
+				for _, ct := range allTypes {
+					cumulative += ct.weight
+					if roll < cumulative {
+						selectedType = ct.ctype
+						break
+					}
+				}
+				if !usedTypes[selectedType] || attempts >= 19 {
+					break
+				}
+			}
+		} else {
+			// 超过类型数，随机选
+			totalWeight := 0
+			for _, ct := range allTypes {
+				totalWeight += ct.weight
+			}
+			roll := rng.Intn(totalWeight)
+			cumulative := 0
+			for _, ct := range allTypes {
+				cumulative += ct.weight
+				if roll < cumulative {
+					selectedType = ct.ctype
+					break
+				}
+			}
+		}
+		usedTypes[selectedType] = true
+
+		// 根据类型从内容池生成挑战
+		var prompt, answer string
+		switch selectedType {
+		case types.ChallengeTextSummary:
+			text := textSummaryPool[rng.Intn(len(textSummaryPool))]
+			prompt = fmt.Sprintf("将以下文章摘要为不超过50字：\n\n%s", text)
+			answer = ""
+
+		case types.ChallengeSentiment:
+			item := sentimentPool[rng.Intn(len(sentimentPool))]
+			prompt = fmt.Sprintf("判断以下评论的情感倾向（正面/负面/中性）：%s", item.text)
+			answer = item.expected
+
+		case types.ChallengeTranslation:
+			item := translationPool[rng.Intn(len(translationPool))]
+			prompt = fmt.Sprintf("将以下英文翻译为中文：%s", item.english)
+			answer = item.chinese
+
+		case types.ChallengeClassification:
+			item := classificationPool[rng.Intn(len(classificationPool))]
+			prompt = fmt.Sprintf("将以下文本分类到最合适的类别（科技/金融/体育/娱乐/政治）：%s", item.text)
+			answer = item.expected
+
+		case types.ChallengeMath:
+			a := rng.Intn(900) + 100
+			b := rng.Intn(900) + 100
+			ops := []string{"+", "-", "*"}
+			op := ops[rng.Intn(len(ops))]
+			var result int
+			switch op {
+			case "+":
+				result = a + b
+			case "-":
+				result = a - b
+			case "*":
+				result = a * b
+			}
+			prompt = fmt.Sprintf("计算 %d %s %d 的结果", a, op, b)
+			answer = fmt.Sprintf("%d", result)
+
+		case types.ChallengeLogic:
+			prompt = "如果 A > B 且 B > C，那么 A 和 C 的关系是？(回答格式: A>C)"
+			answer = "A>C"
+
+		default:
+			a := rng.Intn(100) + 1
+			b := rng.Intn(100) + 1
+			prompt = fmt.Sprintf("计算 %d + %d 的结果", a, b)
+			answer = fmt.Sprintf("%d", a+b)
+		}
+
+		tier := types.GetTaskTier(selectedType)
+
+		// Spot Check: 10% 概率
+		isSpotCheck := rng.Intn(10) == 0
+		knownAnswer := ""
+		if isSpotCheck && answer != "" {
+			knownAnswer = answer
+		} else if isSpotCheck && answer == "" {
+			isSpotCheck = false
+		}
+
+		challenge := types.Challenge{
+			ID:             fmt.Sprintf("ch-%d-%d", epoch, idx),
+			Epoch:          epoch,
+			Type:           selectedType,
+			Tier:           tier,
+			Prompt:         prompt,
+			ExpectedAnswer: answer,
+			Assignees:      []string{}, // 公开挑战，任何人可提交
+			Status:         types.ChallengeStatusPending,
+			CreatedHeight:  ctx.BlockHeight(),
+			Commits:        make(map[string]string),
+			Reveals:        make(map[string]string),
+			IsSpotCheck:    isSpotCheck,
+			KnownAnswer:    knownAnswer,
+		}
+
+		bz, _ := json.Marshal(challenge)
+		store.Set([]byte(fmt.Sprintf("challenge:%s", challenge.ID)), bz)
+
+		promptPreview := prompt
+		if len(promptPreview) > 50 {
+			promptPreview = promptPreview[:50] + "..."
+		}
+
+		k.Logger(ctx).Info("生成公开挑战",
+			"id", challenge.ID,
+			"type", selectedType,
+			"tier", tier,
+			"is_spot_check", isSpotCheck,
+			"prompt", promptPreview,
+			"has_expected_answer", answer != "")
+	}
+
+	k.Logger(ctx).Info("本 epoch 挑战生成完毕",
+		"epoch", epoch,
+		"active_miners", activeCount,
+		"num_challenges", numChallenges)
 }
 
 // GetActiveMiners 获取活跃矿工列表
@@ -622,6 +693,49 @@ func (k Keeper) GetBlockReward(height int64) int64 {
 		}
 	}
 	return reward
+}
+
+// AccumulateEpochRewards 在 EndBlock 中每 epoch 结束时累加验证者池和生态基金
+// 每 epoch 总奖励 50 CLAW = 50,000,000 uclaw
+//   - 矿工池 60% = 30 CLAW（已在提交时处理）
+//   - 验证者池 20% = 10 CLAW = 10,000,000 uclaw → store key "validator_pool_total"
+//   - 生态基金 20% = 10 CLAW = 10,000,000 uclaw → store key "eco_fund_total"
+// 注：实际的链上铸币和转账将在主网阶段实现，当前仅记账。
+func (k Keeper) AccumulateEpochRewards(ctx sdk.Context, epoch uint64) {
+	const (
+		validatorRewardPerEpoch = int64(10_000_000) // 10 CLAW in uclaw
+		ecoFundRewardPerEpoch   = int64(10_000_000) // 10 CLAW in uclaw
+	)
+
+	store := ctx.KVStore(k.storeKey)
+
+	// 验证者池累加
+	valKey := []byte("validator_pool_total")
+	valTotal := int64(0)
+	if bz := store.Get(valKey); bz != nil {
+		json.Unmarshal(bz, &valTotal)
+	}
+	valTotal += validatorRewardPerEpoch
+	valBz, _ := json.Marshal(valTotal)
+	store.Set(valKey, valBz)
+
+	// 生态基金累加
+	ecoKey := []byte("eco_fund_total")
+	ecoTotal := int64(0)
+	if bz := store.Get(ecoKey); bz != nil {
+		json.Unmarshal(bz, &ecoTotal)
+	}
+	ecoTotal += ecoFundRewardPerEpoch
+	ecoBz, _ := json.Marshal(ecoTotal)
+	store.Set(ecoKey, ecoBz)
+
+	k.Logger(ctx).Info("Epoch 奖励累计",
+		"epoch", epoch,
+		"validator_pool_added", validatorRewardPerEpoch,
+		"validator_pool_total", valTotal,
+		"eco_fund_added", ecoFundRewardPerEpoch,
+		"eco_fund_total", ecoTotal,
+	)
 }
 
 // PendingReward 待结算的奖励记录

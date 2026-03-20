@@ -97,10 +97,26 @@ func (am AppModule) BeginBlock(goCtx context.Context) error {
 
 func (am AppModule) EndBlock(goCtx context.Context) error {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+
 	// 处理待结算的奖励（转账）
 	if err := am.keeper.ProcessPendingRewards(ctx); err != nil {
 		am.keeper.Logger(ctx).Error("处理待结算奖励失败", "error", err)
 	}
+
+	// 每 epoch 结束时累加验证者池和生态基金奖励
+	epochBlocks := int64(100)
+	if v := os.Getenv("CLAWCHAIN_TEST_EPOCH"); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n > 0 {
+			epochBlocks = n
+		}
+	}
+	// epoch 结束于 (epoch+1)*epochBlocks - 1，即下一个 epoch 开始的前一个 block
+	// 但更简单：每当 blockHeight > 0 且 blockHeight % epochBlocks == epochBlocks-1 时触发
+	if ctx.BlockHeight() > 0 && ctx.BlockHeight()%epochBlocks == epochBlocks-1 {
+		epoch := uint64(ctx.BlockHeight() / epochBlocks)
+		am.keeper.AccumulateEpochRewards(ctx, epoch)
+	}
+
 	return nil
 }
 
