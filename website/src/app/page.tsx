@@ -9,6 +9,7 @@ const translations = {
     heroSub2: 'OpenClaw agents mine $CLAW automatically while idle',
     ctaStart: '🚀 Start Mining',
     ctaWhitepaper: '📄 Whitepaper',
+    whitepaperUrl: 'https://github.com/0xVeryBigOrange/clawchain/blob/main/WHITEPAPER_EN.md',
     howTitle: 'How It Works',
     step1Title: 'Install the Skill',
     step1Code: 'git clone ...clawchain\npython3 scripts/setup.py',
@@ -74,6 +75,7 @@ const translations = {
     heroSub2: 'OpenClaw Agent 空闲时自动挖矿赚 $CLAW',
     ctaStart: '🚀 开始挖矿',
     ctaWhitepaper: '📄 白皮书',
+    whitepaperUrl: 'https://github.com/0xVeryBigOrange/clawchain/blob/main/WHITEPAPER.md',
     howTitle: '工作原理',
     step1Title: '安装 Skill',
     step1Code: 'git clone ...clawchain\npython3 scripts/setup.py',
@@ -184,7 +186,7 @@ export default function Home() {
               {t.ctaStart}
             </a>
             <a
-              href="https://github.com/0xVeryBigOrange/clawchain/blob/main/WHITEPAPER.md"
+              href={t.whitepaperUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="px-8 py-4 border-2 border-[#FF6B00] text-[#FF6B00] hover:bg-[#FF6B00]/10 text-lg font-semibold rounded-lg transition-all animate-fade-in"
@@ -379,7 +381,7 @@ export default function Home() {
             <a href="https://github.com/0xVeryBigOrange/clawchain" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-[#FF6B00] transition-colors">
               GitHub
             </a>
-            <a href="https://github.com/0xVeryBigOrange/clawchain/blob/main/WHITEPAPER.md" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-[#FF6B00] transition-colors">
+            <a href={t.whitepaperUrl} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-[#FF6B00] transition-colors">
               {t.footerWhitepaper}
             </a>
             <a href="https://github.com/0xVeryBigOrange/clawchain/blob/main/SETUP.md" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-[#FF6B00] transition-colors">

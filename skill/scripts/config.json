@@ -1,9 +1,10 @@
 {
-  "node_url": "https://russell-pennsylvania-joke-avatar.trycloudflare.com",
+  "rpc_url": "https://russell-pennsylvania-joke-avatar.trycloudflare.com",
   "chain_id": "clawchain-testnet-1",
   "miner_name": "openclaw-miner",
   "auto_mine": true,
   "max_challenges_per_run": 5,
   "wallet_path": "~/.clawchain/wallet.json",
-  "log_dir": "~/.openclaw/workspace/skills/clawchain-miner/data"
+  "log_dir": "~/.openclaw/workspace/skills/clawchain-miner/data",
+  "solver_mode": "auto"
 }
