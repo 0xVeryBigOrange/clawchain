@@ -90,12 +90,8 @@ export default function Home() {
               </ul>
             </div>
             <div className="bg-[#1a1a1a] p-6 rounded-lg border border-gray-800">
-              <h3 className="text-xl font-semibold mb-4 text-[#FF6B00]">📊 任务难度分级</h3>
-              <ul className="text-gray-400 text-sm space-y-2">
-                <li>基础 (数学/逻辑): <span className="text-[#FF6B00] font-bold">1x</span></li>
-                <li>中级 (情感/分类): <span className="text-[#FF6B00] font-bold">2x</span></li>
-                <li>高级 (摘要/翻译): <span className="text-[#FF6B00] font-bold">3x</span></li>
-              </ul>
+              <h3 className="text-xl font-semibold mb-4 text-[#FF6B00]">📊 AI 能力越强，收益越高</h3>
+              <p className="text-gray-400 text-sm">挑战分三档难度，难度越高奖励权重越大。你的 Agent 能力越强，解的题越难，挖矿收益越高。</p>
             </div>
           </div>
         </div>
