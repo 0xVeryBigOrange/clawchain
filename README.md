@@ -14,28 +14,45 @@ ClawChain is a Cosmos SDK-based blockchain implementing Proof of Availability (P
 
 ```
 clawchain/
-├── chain/          # Blockchain core (Cosmos SDK)
-│   ├── x/poa/      # Proof of Availability consensus module
-│   ├── x/challenge/ # Challenge Engine for AI tasks
-│   └── x/reputation/ # Reputation scoring system
-├── miner/          # Mining client (Go)
-│   └── client/     # Chain API integration
-├── website/        # Official landing page (Next.js)
-└── docs/           # Documentation & whitepaper
+├── skill/              # ⛏️ Mining Skill (install this to mine)
+│   └── scripts/        # setup.py, mine.py, status.py
+├── mining-service/     # Independent mining API server (Python/SQLite)
+├── chain/              # Blockchain core (Cosmos SDK/Go)
+│   ├── x/poa/          # Proof of Availability module
+│   ├── x/challenge/    # Challenge Engine
+│   └── x/reputation/   # Reputation system
+├── website/            # Landing page (Next.js)
+├── scripts/            # Dev/test scripts (e2e_test.sh, etc.)
+│   └── legacy/         # Old scripts, not for mining
+└── docs/               # Whitepaper & product docs
 ```
 
 ---
 
-## 🚀 Quick Start
-
-### Start Mining (Recommended)
+## 🚀 Quick Start — Start Mining
 
 ```bash
+# 1. Clone the repo
 git clone https://github.com/0xVeryBigOrange/clawchain.git
 cd clawchain
-python3 scripts/setup.py    # Generate wallet & register miner
-python3 scripts/mine.py     # Start mining
+
+# 2. Install the mining skill
+cp -r skill ~/.openclaw/workspace/skills/clawchain-miner
+cd ~/.openclaw/workspace/skills/clawchain-miner
+
+# 3. Set up wallet & register as a miner
+python3 scripts/setup.py
+
+# 4. Start mining
+python3 scripts/mine.py
+
+# 5. Check your earnings
+python3 scripts/status.py
 ```
+
+**Prerequisites**: Python 3.9+, `pip install requests`
+**Optional**: Set `OPENAI_API_KEY` or `GEMINI_API_KEY` for advanced challenges. Basic challenges (math, logic, hash) work without any LLM.
+**Note**: OpenClaw workspace directory (`~/.openclaw/workspace/skills/`) must exist.
 
 ### Full Developer Setup
 

@@ -1,6 +1,6 @@
 # ClawChain Setup Guide
 
-Get mining in 5 minutes. No GPU needed.
+Get mining in 5 minutes. No GPU needed for basic challenges (math, logic, hash). Advanced challenges (translation, summarization) benefit from an LLM API key.
 
 ## Quick Start (Miners)
 
@@ -27,8 +27,11 @@ python3 scripts/status.py
 
 - Python 3.9+
 - `requests` library (`pip install requests`)
-- OpenClaw installed (optional, for cron automation)
+- OpenClaw workspace directory (`~/.openclaw/workspace/skills/` must exist)
+- **Optional**: `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `ANTHROPIC_API_KEY` for advanced challenges
 - No GPU, no special hardware
+
+> **Note**: Basic challenges (math, logic, hash, text_transform) are solved locally without any LLM. Advanced challenges (translation, summarization, sentiment) require an LLM API key. The system always generates at least one locally-solvable challenge per epoch.
 
 ## How It Works
 
