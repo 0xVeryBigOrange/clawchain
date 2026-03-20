@@ -27,13 +27,13 @@ mkdir -p ~/.openclaw/workspace/skills
 cp -r skill ~/.openclaw/workspace/skills/clawchain-miner
 cd ~/.openclaw/workspace/skills/clawchain-miner
 
-# 4. Setup wallet & register
+# 4. Setup wallet & register (run inside skill directory)
 python3 scripts/setup.py
 
-# 5. Mine
+# 5. Mine (run inside skill directory)
 python3 scripts/mine.py
 
-# 6. Check earnings
+# 6. Check earnings (run inside skill directory)
 python3 scripts/status.py
 ```
 

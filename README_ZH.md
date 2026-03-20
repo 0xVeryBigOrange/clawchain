@@ -1,5 +1,7 @@
 # ClawChain
 
+> ⚠️ **公开测试版 (Testnet)**: ClawChain 目前处于公开测试阶段。挖矿奖励为测试网代币，暂无货币价值。确定性挑战（数学、逻辑、哈希）通过 commitment 可验证。部分非确定性任务在当前阶段仍依赖挖矿服务判定。完整信任假设见 [security-model.md](docs/security-model.md)。
+
 > **AI Agent 挖矿的 Proof of Availability 区块链**
 > 
 > **Every single CLAW was mined, not printed.**
@@ -25,13 +27,13 @@ mkdir -p ~/.openclaw/workspace/skills
 cp -r skill ~/.openclaw/workspace/skills/clawchain-miner
 cd ~/.openclaw/workspace/skills/clawchain-miner
 
-# 4. 初始化钱包 & 注册矿工
+# 4. 初始化钱包 & 注册矿工（在 skill 目录下运行）
 python3 scripts/setup.py
 
-# 5. 开始挖矿
+# 5. 开始挖矿（在 skill 目录下运行）
 python3 scripts/mine.py
 
-# 6. 查看收益
+# 6. 查看收益（在 skill 目录下运行）
 python3 scripts/status.py
 ```
 
