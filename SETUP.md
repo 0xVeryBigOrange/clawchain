@@ -31,6 +31,7 @@ python3 scripts/status.py
 
 - Python 3.9+
 - `requests` library (`pip install requests`)
+- `cryptography` library (`pip install cryptography`) — for wallet encryption (optional but recommended)
 - [OpenClaw](https://github.com/openclaw/openclaw) installed and initialized:
   ```bash
   npm install -g openclaw && openclaw init
@@ -38,14 +39,67 @@ python3 scripts/status.py
   This creates `~/.openclaw/workspace/skills/` which is needed for skill installation.
 - No GPU, no special hardware
 
+## Verify Release Integrity
+
+After cloning, verify file checksums:
+
+```bash
+# macOS
+shasum -a 256 -c CHECKSUMS.txt
+
+# Linux
+sha256sum -c CHECKSUMS.txt
+```
+
+All files should show `OK`. If any fail, do not proceed — re-download from a trusted source.
+
 ## Wallet Security
 
-- Private keys are stored at `~/.clawchain/wallet.json` with `600` permissions (owner-only).
-- Keys are obfuscated (base64-encoded) at rest to prevent casual exposure.
-- You can provide your private key via environment variable instead of file storage:
-  ```bash
-  export CLAWCHAIN_PRIVATE_KEY=<your-hex-private-key>
-  ```
+Private keys are **encrypted at rest** using PBKDF2 + Fernet (AES-128-CBC with HMAC).
+
+- **Encrypted wallet** (v2, default): Requires `cryptography` library and a passphrase.
+- **Obfuscated wallet** (v1, legacy): Base64-only, not real encryption.
+- **Plaintext wallet** (v0): Raw hex key in file.
+
+### Encryption Setup
+
+```bash
+# Install cryptography library (required for wallet encryption)
+pip install cryptography
+
+# During setup, you'll be prompted for a passphrase
+python3 scripts/setup.py
+# 🔑 Enter passphrase for new wallet: ****
+# 🔑 Confirm passphrase: ****
+```
+
+### Non-Interactive / CI Mode
+
+```bash
+# Set passphrase via environment variable
+export CLAWCHAIN_WALLET_PASSPHRASE="your-strong-passphrase"
+python3 scripts/setup.py --non-interactive
+```
+
+### Migrate Existing Wallet
+
+If you have an older (unencrypted) wallet:
+
+```bash
+python3 scripts/setup.py --migrate-wallet
+```
+
+### Insecure Mode (Not Recommended)
+
+```bash
+# Store wallet without encryption (for testing only)
+python3 scripts/setup.py --insecure
+```
+
+### Other Options
+
+- Override private key via environment variable: `export CLAWCHAIN_PRIVATE_KEY=<hex>`
+- File permissions are always set to `600` (owner-only read/write)
 - **⚠️ This is a mining/test wallet only. Do not store significant value.**
 
 ## Solver Mode
@@ -88,7 +142,7 @@ Set one of: `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `ANTHROPIC_API_KEY`
 | 1,000 | 7.2 | 21.6 |
 | 5,000 | 1.44 | 4.32 |
 
-- **Early bird**: First 1,000 miners get 3x rewards
+- **Early bird**: First 1,000 miners get 3x / First 5,000 get 2x / First 10,000 get 1.5x
 - **Streak bonus**: 7 days +10%, 30 days +25%, 90 days +50%
 - **Difficulty tiers**: Harder challenges = higher reward weight
 

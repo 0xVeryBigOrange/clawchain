@@ -4,13 +4,16 @@ ClawChain Wallet Initialization & Miner Registration
 Generate a Cosmos SDK wallet (bech32 claw prefix), save keys, register miner.
 
 Wallet Security:
-  - Private keys are stored with file permissions 600 (owner-only read/write).
+  - Private keys are encrypted with PBKDF2 + Fernet (requires `cryptography` library).
+  - Falls back to base64 obfuscation if `cryptography` is not installed (with warning).
+  - File permissions are set to 600 (owner-only read/write).
   - You can override the private key via env var CLAWCHAIN_PRIVATE_KEY.
+  - Passphrase can be provided via env var CLAWCHAIN_WALLET_PASSPHRASE.
+  - Use --insecure flag for plaintext storage (not recommended).
   - This is a TESTNET/MINING wallet. Do not store significant value.
 """
 
 import argparse
-import base64
 import hashlib
 import json
 import os
@@ -27,6 +30,15 @@ except ImportError:
 
 SCRIPT_DIR = Path(__file__).parent
 CONFIG_PATH = SCRIPT_DIR / "config.json"
+
+# Import wallet crypto module
+from wallet_crypto import (
+    save_wallet as crypto_save_wallet,
+    load_wallet as crypto_load_wallet,
+    detect_wallet_version,
+    migrate_wallet,
+    HAS_CRYPTO,
+)
 
 # ─── bech32 encoding (pure Python, no extra dependencies) ───
 
@@ -75,29 +87,6 @@ def warn_insecure_rpc(url):
         print(f"⚠️  SECURITY WARNING: RPC endpoint uses plain HTTP ({url}). Use HTTPS for production.")
 
 
-# ─── Wallet Key Obfuscation ───
-
-def _obfuscate_key(private_key_hex: str) -> str:
-    """Obfuscate private key with base64 encoding for at-rest storage.
-
-    NOTE: This is NOT cryptographic encryption — it prevents casual exposure
-    of the raw hex key in plaintext files. Combined with 600 file permissions,
-    this provides reasonable protection for a testnet mining wallet.
-    """
-    marker = b"CLAWCHAIN_TESTNET_KEY_V1:"
-    return base64.b64encode(marker + bytes.fromhex(private_key_hex)).decode()
-
-
-def _deobfuscate_key(encoded: str) -> str:
-    """Reverse the obfuscation."""
-    raw = base64.b64decode(encoded)
-    marker = b"CLAWCHAIN_TESTNET_KEY_V1:"
-    if raw.startswith(marker):
-        return raw[len(marker):].hex()
-    # Fallback: treat entire payload as the key
-    return raw.hex()
-
-
 def generate_wallet(private_key_override=None):
     """Generate a Cosmos-style wallet (claw prefix).
 
@@ -123,53 +112,13 @@ def generate_wallet(private_key_override=None):
         "public_key_hash": ripemd.hex(),
     }
 
-def save_wallet(wallet_data, wallet_path):
-    """Save wallet to file with obfuscated private key (permissions 600)."""
-    wallet_path = Path(wallet_path).expanduser()
-    wallet_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Obfuscate private key for storage
-    stored = {
-        "address": wallet_data["address"],
-        "private_key_encoded": _obfuscate_key(wallet_data["private_key"]),
-        "public_key_hash": wallet_data["public_key_hash"],
-        "_warning": "This is a mining/test wallet only. Do not store significant value.",
-    }
+# Backward-compatible wrappers
+def save_wallet(wallet_data, wallet_path, passphrase=None, insecure=False):
+    return crypto_save_wallet(wallet_data, wallet_path, passphrase=passphrase, insecure=insecure)
 
-    with open(wallet_path, "w") as f:
-        json.dump(stored, f, indent=2)
-
-    os.chmod(wallet_path, 0o600)
-    return wallet_path
-
-
-def load_wallet(wallet_path):
-    """Load wallet, supporting both old (plaintext) and new (obfuscated) formats.
-
-    Also supports CLAWCHAIN_PRIVATE_KEY env var override.
-    """
-    wallet_path = Path(wallet_path).expanduser()
-    with open(wallet_path) as f:
-        data = json.load(f)
-
-    address = data["address"]
-
-    # Env var override
-    env_key = os.getenv("CLAWCHAIN_PRIVATE_KEY")
-    if env_key:
-        print("🔑 Using private key from CLAWCHAIN_PRIVATE_KEY environment variable")
-        return {"address": address, "private_key": env_key, "public_key_hash": data.get("public_key_hash", "")}
-
-    # New format
-    if "private_key_encoded" in data:
-        pk = _deobfuscate_key(data["private_key_encoded"])
-        return {"address": address, "private_key": pk, "public_key_hash": data.get("public_key_hash", "")}
-
-    # Old format (plaintext)
-    if "private_key" in data:
-        return data
-
-    raise ValueError("Wallet file has no recognizable private key field")
+def load_wallet(wallet_path, passphrase=None):
+    return crypto_load_wallet(wallet_path, passphrase=passphrase)
 
 
 def register_miner(rpc_url, address, name):
@@ -196,6 +145,8 @@ def main():
     parser.add_argument("--rpc", default=None, help="Chain REST API URL (default: from config.json)")
     parser.add_argument("--wallet-path", default=None, help="Wallet save path (default: ~/.clawchain/wallet.json)")
     parser.add_argument("--non-interactive", action="store_true", help="Non-interactive mode (auto-confirm)")
+    parser.add_argument("--insecure", action="store_true", help="Store wallet without encryption (not recommended)")
+    parser.add_argument("--migrate-wallet", action="store_true", help="Migrate existing wallet to v2 encrypted format")
     args = parser.parse_args()
 
     # Load config with backward compat
@@ -217,11 +168,48 @@ def main():
     wallet_path_expanded = Path(wallet_path).expanduser()
     miner_name = args.name or config.get("miner_name", "openclaw-miner")
 
+    # Show encryption status
+    if not HAS_CRYPTO:
+        print("⚠️  `cryptography` library not installed. Wallet encryption unavailable.")
+        print("   Install: pip install cryptography")
+    elif not args.insecure:
+        print("🔐 Wallet encryption enabled (PBKDF2 + Fernet)")
+
+    # Handle --migrate-wallet
+    if args.migrate_wallet:
+        if wallet_path_expanded.exists():
+            info = detect_wallet_version(wallet_path_expanded)
+            if info.get("needs_migration"):
+                print(f"🔄 Migrating wallet from v{info.get('version', 0)} ({info.get('format', 'unknown')}) to v2 encrypted...")
+                if migrate_wallet(wallet_path_expanded):
+                    print("✅ Wallet migration complete.")
+                else:
+                    print("❌ Wallet migration failed.")
+                    sys.exit(1)
+            else:
+                print("ℹ️  Wallet is already v2 encrypted.")
+        else:
+            print("❌ No wallet found to migrate.")
+            sys.exit(1)
+        return
+
     # Check for env var private key
     env_key = os.getenv("CLAWCHAIN_PRIVATE_KEY")
 
     # Check for existing wallet
     if wallet_path_expanded.exists():
+        # Detect and warn about unencrypted wallets
+        wallet_info = detect_wallet_version(wallet_path_expanded)
+        if wallet_info.get("needs_migration") and HAS_CRYPTO and not args.insecure:
+            print(f"⚠️  Wallet is in {wallet_info.get('format', 'legacy')} format (not encrypted).")
+            if not args.non_interactive:
+                migrate_choice = input("   Migrate to encrypted format now? (y/n): ").strip().lower()
+                if migrate_choice == "y":
+                    if migrate_wallet(wallet_path_expanded):
+                        print("✅ Wallet migrated to v2 encrypted format.")
+                    else:
+                        print("⚠️  Migration failed. Continuing with existing format.")
+
         existing = load_wallet(wallet_path_expanded)
         print(f"📋 Existing wallet found: {existing['address']}")
         if not args.non_interactive:
@@ -267,9 +255,14 @@ def main():
             print("❌ Cancelled")
             sys.exit(0)
 
-    # Save wallet (with obfuscated key)
-    saved_path = save_wallet(wallet, wallet_path)
-    print(f"💾 Wallet saved: {saved_path} (permissions 600, key obfuscated)")
+    # Save wallet (encrypted if possible)
+    saved_path = save_wallet(wallet, wallet_path, insecure=args.insecure)
+    if args.insecure:
+        print(f"💾 Wallet saved: {saved_path} (permissions 600, ⚠️ NOT encrypted)")
+    elif HAS_CRYPTO:
+        print(f"💾 Wallet saved: {saved_path} (permissions 600, 🔐 encrypted)")
+    else:
+        print(f"💾 Wallet saved: {saved_path} (permissions 600, key obfuscated)")
 
     # Register miner
     print(f"\n📝 Registering miner on chain...")

@@ -30,8 +30,11 @@ description: "ClawChain auto-mining — let your OpenClaw agent connect to ClawC
 4. Run `python3 scripts/doctor.py` to verify your setup
 
 ### Wallet Security
-- Private keys are obfuscated (base64) at rest with 600 file permissions.
-- Override via env var: `export CLAWCHAIN_PRIVATE_KEY=<hex>`
+- Private keys are **encrypted** (PBKDF2 + Fernet) at rest with 600 file permissions (requires `cryptography` library).
+- Falls back to base64 obfuscation if `cryptography` is not installed.
+- Passphrase via env var: `export CLAWCHAIN_WALLET_PASSPHRASE=<passphrase>`
+- Override private key via env var: `export CLAWCHAIN_PRIVATE_KEY=<hex>`
+- Migrate legacy wallets: `python3 scripts/setup.py --migrate-wallet`
 - **⚠️ This is a mining/test wallet. Do not store significant value.**
 
 ### Solver Mode (`solver_mode` in config.json)

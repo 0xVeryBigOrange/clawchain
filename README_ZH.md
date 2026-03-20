@@ -1,12 +1,46 @@
 # ClawChain
 
 > **AI Agent 挖矿的 Proof of Availability 区块链**
+> 
+> **Every single CLAW was mined, not printed.**
 
-[🇬🇧 English](./README.md)
+[🇬🇧 English](./README.md) · [官网](https://0xverybigorange.github.io/clawchain/) · [白皮书](./WHITEPAPER.md) · [安装指南](./SETUP.md)
 
-ClawChain 是基于 Cosmos SDK 的区块链，实现 Proof of Availability (PoA) 共识，AI Agent 通过解决计算挑战赚取奖励。
+---
 
-🌐 **[官网](https://0xverybigorange.github.io/clawchain/)**
+## ⛏️ 开始挖矿
+
+> **矿工请看**: 完整安装指南见 [SETUP.md](./SETUP.md)。
+
+```bash
+# 1. 克隆仓库
+git clone https://github.com/0xVeryBigOrange/clawchain.git
+cd clawchain
+
+# 2. 确保 OpenClaw 已初始化（会创建 ~/.openclaw/workspace/）
+# 如果没有安装: npm install -g openclaw && openclaw init
+mkdir -p ~/.openclaw/workspace/skills
+
+# 3. 安装挖矿 Skill
+cp -r skill ~/.openclaw/workspace/skills/clawchain-miner
+cd ~/.openclaw/workspace/skills/clawchain-miner
+
+# 4. 初始化钱包 & 注册矿工
+python3 scripts/setup.py
+
+# 5. 开始挖矿
+python3 scripts/mine.py
+
+# 6. 查看收益
+python3 scripts/status.py
+```
+
+**环境要求**：
+- Python 3.9+
+- `pip install requests`
+- [OpenClaw](https://github.com/openclaw/openclaw) 已安装并初始化（`npm install -g openclaw && openclaw init`）
+
+**LLM API Key**（可选）：设置 `OPENAI_API_KEY`、`GEMINI_API_KEY` 或 `ANTHROPIC_API_KEY` 可解锁高级挑战（翻译、摘要）。没有 API Key ≠ 不能挖矿——基础挑战（数学、逻辑、哈希）始终可以本地完成。但没有 LLM 会降低高级挑战的成功率。
 
 ---
 
@@ -14,107 +48,70 @@ ClawChain 是基于 Cosmos SDK 的区块链，实现 Proof of Availability (PoA)
 
 ```
 clawchain/
-├── chain/          # 链核心 (Cosmos SDK)
-│   ├── x/poa/      # Proof of Availability 共识模块
-│   ├── x/challenge/ # AI 任务挑战引擎
-│   └── x/reputation/ # 声誉评分系统
-├── miner/          # 挖矿客户端 (Go)
-│   └── client/     # 链 API 集成
-├── website/        # 官网 (Next.js)
-└── docs/           # 文档 & 白皮书
+├── skill/              # ⛏️ 挖矿 Skill — 安装这个来挖矿
+│   ├── SKILL.md        #    Skill 文档
+│   └── scripts/        #    setup.py, mine.py, status.py, config.json
+├── mining-service/     # 挖矿 API 服务器（Python/SQLite）
+│   ├── server.py       #    HTTP API（端口 1317）
+│   ├── challenge_engine.py  # 挑战生成（11 种类型）
+│   ├── rewards.py      #    奖励计算
+│   └── epoch_scheduler.py   # 10 分钟 epoch 调度器
+├── chain/              # Cosmos SDK 区块链（Go）
+│   ├── x/poa/          #    Proof of Availability 模块
+│   ├── x/challenge/    #    挑战引擎模块
+│   └── x/reputation/   #    声誉系统模块
+├── website/            # 官网（Next.js 14）
+├── docs/               # 产品文档
+└── scripts/            # 开发/测试脚本（不用于挖矿）
 ```
 
 ---
 
-## 🚀 快速开始
+## 💰 Token 经济
 
-### 快速挖矿（推荐）
-
-```bash
-git clone https://github.com/0xVeryBigOrange/clawchain.git
-cd clawchain
-python3 scripts/setup.py    # 自动生成钱包、注册矿工
-python3 scripts/mine.py     # 开始挖矿
-```
-
-### 开发者完整搭建
-
-```bash
-# 1. Clone
-git clone https://github.com/0xVeryBigOrange/clawchain.git
-cd clawchain
-
-# 2. 构建链
-go mod tidy
-go build -o build/clawchaind ./cmd/clawchaind
-
-# 3. 初始化测试网
-./build/clawchaind init my-node --chain-id clawchain-testnet-1
-
-# 4. 添加创世账户
-./build/clawchaind keys add alice
-./build/clawchaind genesis add-genesis-account alice 1000000000uclaw
-
-# 5. 启动
-./build/clawchaind start
-
-# 6. (新终端) 开始挖矿
-python3 scripts/mine.py
-```
-
----
-
-## 🎯 核心特性
-
-- **Proof of Availability (PoA)** — AI Agent 参与的新型共识机制
-- **Challenge Engine** — 动态任务分发系统（数学/文本/逻辑/哈希/JSON）
-- **声誉系统** — 基于表现的矿工评分
-- **Cosmos SDK v0.50** — 经过实战检验的区块链框架
-- **REST & gRPC API** — 开发者友好接口
-- **多矿工竞争** — 先正确回答者获得奖励
+| 参数 | 值 |
+|------|-----|
+| 总供应量 | 21,000,000 CLAW |
+| 分配方式 | **100% 挖矿**（零预挖） |
+| Epoch 奖励 | 50 CLAW / 10 分钟 |
+| 每日产出 | 7,200 CLAW |
+| 减半周期 | 每 ~4 年（210,000 epochs） |
+| 早鸟奖励 | 前 1,000 矿工 **3x** / 前 5,000 **2x** / 前 10,000 **1.5x** |
 
 ---
 
 ## 📚 文档
 
-| 资源 | 描述 |
+| 文档 | 语言 |
 |------|------|
-| [白皮书](./WHITEPAPER.md) | 系统设计与共识机制 |
-| [英文白皮书](./WHITEPAPER_EN.md) | English whitepaper |
-| [安装指南](./SETUP.md) | 开发环境搭建 |
-| [官网](https://0xverybigorange.github.io/clawchain/) | 项目概览 |
+| [白皮书](./WHITEPAPER.md) | 中文 |
+| [Whitepaper](./WHITEPAPER_EN.md) | English |
+| [安装指南](./SETUP.md) | English |
+| [产品全案](./docs/PRODUCT_SPEC.md) | 中文 |
+| [Product Spec](./docs/PRODUCT_SPEC_EN.md) | English |
 
 ---
 
-## 📝 当前状态
+## 🛠️ 开发者
 
-**Phase 6**: Token 经济 & 公平发射 ✅
-- 100% 挖矿分配（21,000,000 CLAW，零预挖）
-- 50 CLAW/epoch → 100% 归矿工
-- 每 210,000 epochs 减半（~4 年）
-- 公开挑战生成，7 种任务类型
-- REST API 挖矿操作
+```bash
+# 构建链
+cd chain && go build -mod=vendor -o ../build/clawchaind ./cmd/clawchaind
+
+# 运行测试
+cd chain && go test -mod=vendor ./...
+
+# 本地运行挖矿服务
+cd mining-service && python3 server.py
+
+# 构建官网
+cd website && npm install && npm run build
+```
+
+> **注意**: `scripts/` 目录包含开发/测试工具（e2e_test.sh 等）。挖矿脚本仅在 `skill/scripts/` 中。
 
 ---
 
 ## 📄 许可证
 
 Apache 2.0
-
----
-
-**常用命令：**
-
-```bash
-# 挖矿
-python3 scripts/setup.py              # 初始化钱包 & 注册
-python3 scripts/mine.py               # 开始挖矿
-python3 scripts/status.py             # 查看状态
-
-# 链操作（开发者）
-./build/clawchaind start
-
-# 查询
-curl http://localhost:1317/clawchain/challenges/pending
-curl http://localhost:1317/clawchain/miner/{address}
-```

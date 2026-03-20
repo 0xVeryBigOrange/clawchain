@@ -76,7 +76,7 @@ clawchain/
 | Epoch Reward | 50 CLAW / 10 minutes |
 | Daily Output | 7,200 CLAW |
 | Halving | Every ~4 years (210,000 epochs) |
-| Early Bird | First 1,000 miners get **3x** rewards |
+| Early Bird | First 1,000: **3x** / First 5,000: **2x** / First 10,000: **1.5x** |
 
 ---
 

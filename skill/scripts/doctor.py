@@ -9,14 +9,20 @@ import hashlib
 import json
 import os
 import stat
+import subprocess
 import sys
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).parent
 CONFIG_PATH = SCRIPT_DIR / "config.json"
 WORKSPACE_DIR = Path("~/.openclaw/workspace").expanduser()
+REPO_DIR = SCRIPT_DIR.parent.parent  # clawchain repo root
 
 MINER_VERSION = "0.2.0"
+
+# Import wallet crypto
+sys.path.insert(0, str(SCRIPT_DIR))
+from wallet_crypto import detect_wallet_version, HAS_CRYPTO
 
 
 def check(label, ok, detail=""):
@@ -90,14 +96,29 @@ def main():
         detail = f"not found: {wallet_path}"
     all_ok &= check("wallet.json exists with correct permissions (600)", ok, detail)
 
+    # 5b. Wallet encryption status
+    if wallet_path and wallet_path.exists():
+        wallet_info = detect_wallet_version(wallet_path)
+        if wallet_info.get("encrypted"):
+            check("Wallet encryption", True, "v2 encrypted (PBKDF2 + Fernet)")
+        elif wallet_info.get("format") == "obfuscated":
+            print("  ⚠️  Wallet encryption — v1 obfuscated only (not real encryption)")
+            print("     Run: python3 scripts/setup.py --migrate-wallet")
+        elif wallet_info.get("format") == "plaintext":
+            print("  ⚠️  Wallet encryption — v0 plaintext (NOT encrypted)")
+            print("     Run: python3 scripts/setup.py --migrate-wallet")
+    if not HAS_CRYPTO:
+        print("  ⚠️  `cryptography` library not installed — wallet encryption unavailable")
+        print("     Install: pip install cryptography")
+
     # 6. Solver mode check
     solver_mode = config.get("solver_mode", "auto") if config else "auto"
     if solver_mode == "local_only":
-        info("Solver mode", f"{solver_mode} (most secure, no external API calls)")
+        check("Solver mode", True, f"{solver_mode} (most secure, no external API calls)")
     elif solver_mode == "auto":
-        info("Solver mode", f"{solver_mode} (local first, LLM fallback — challenge text sent to LLM provider)")
+        print(f"  ⚠️  Solver mode — {solver_mode} (local first, LLM fallback — challenge text sent to LLM provider)")
     elif solver_mode == "llm":
-        info("Solver mode", f"{solver_mode} (⚠️ all challenges sent to external LLM)")
+        print(f"  ⚠️  Solver mode — {solver_mode} (all challenges sent to external LLM)")
     else:
         info("Solver mode", f"{solver_mode} (unknown)")
 
@@ -202,6 +223,46 @@ def main():
         info("RPC fallback", f"{len(endpoints)} endpoints configured")
     else:
         info("RPC fallback", "no fallback endpoints (single rpc_url only)")
+
+    # 13. Release tag check
+    try:
+        result = subprocess.run(
+            ["git", "describe", "--tags", "--exact-match"],
+            capture_output=True, text=True, cwd=str(REPO_DIR), timeout=5
+        )
+        if result.returncode == 0:
+            tag = result.stdout.strip()
+            check("On stable release tag", True, tag)
+        else:
+            result2 = subprocess.run(
+                ["git", "describe", "--tags"],
+                capture_output=True, text=True, cwd=str(REPO_DIR), timeout=5
+            )
+            desc = result2.stdout.strip() if result2.returncode == 0 else "unknown"
+            print(f"  ⚠️  Not on a release tag — {desc}")
+            print("     Consider using a tagged release for stability")
+    except Exception:
+        info("Release tag", "git not available or not a git repo")
+
+    # 14. CHECKSUMS.txt verification
+    checksums_path = REPO_DIR / "CHECKSUMS.txt"
+    if checksums_path.exists():
+        try:
+            result = subprocess.run(
+                ["shasum", "-a", "256", "-c", "CHECKSUMS.txt"],
+                capture_output=True, text=True, cwd=str(REPO_DIR), timeout=30
+            )
+            if result.returncode == 0:
+                lines = [l for l in result.stdout.strip().split("\n") if l.strip()]
+                check("CHECKSUMS.txt verification", True, f"{len(lines)} files verified")
+            else:
+                failed_lines = [l for l in result.stdout.strip().split("\n") if "FAILED" in l]
+                check("CHECKSUMS.txt verification", False, f"{len(failed_lines)} file(s) failed")
+                all_ok = False
+        except Exception as e:
+            info("CHECKSUMS.txt verification", f"check failed: {e}")
+    else:
+        info("CHECKSUMS.txt", "not found (run scripts/gen_checksums.sh to generate)")
 
     print()
     if all_ok:

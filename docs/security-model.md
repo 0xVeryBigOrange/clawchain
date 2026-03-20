@@ -187,4 +187,26 @@ Miners do not communicate directly. Trust is mediated by consensus:
 
 ---
 
+## 10. Trust Level Classification
+
+| Component | Trust Level | Notes |
+|-----------|-------------|-------|
+| Math/Logic/Hash challenges | Trust-minimized | Commitment verifiable, answer deterministic |
+| Sentiment/Translation challenges | Server-trust | Until majority-vote implemented |
+| Reward calculation | Server-trust | Auditable via /stats API |
+| Challenge distribution | Trust-minimized | Commitment prevents post-hoc modification |
+| Wallet/keys | Client-only | Server never receives private keys |
+| Network transport | TLS required | HTTP rejected by default on non-localhost |
+| Miner identity | Address-string only | No cryptographic signature verification (testnet) |
+| Staking enforcement | Server-trust | No on-chain staking contract yet |
+
+### Trust Level Definitions
+
+- **Trust-minimized**: Miners can independently verify correctness. Server dishonesty is cryptographically detectable.
+- **Server-trust**: Miners rely on the server's judgment. Auditable via public APIs but not independently verifiable.
+- **Client-only**: Component runs entirely on the miner's machine. Server has no access.
+- **Consensus-trust**: Multiple independent validators must agree. Not yet implemented.
+
+---
+
 *Last updated: 2026-03-20 (v0.2.0-testnet)*

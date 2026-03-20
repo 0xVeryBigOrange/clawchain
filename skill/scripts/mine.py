@@ -34,6 +34,10 @@ LLM_LOG_PATH = DATA_DIR / "llm_calls.json"
 
 DATA_DIR.mkdir(exist_ok=True)
 
+# Import wallet crypto for loading encrypted wallets
+sys.path.insert(0, str(SCRIPT_DIR))
+from wallet_crypto import load_wallet as crypto_load_wallet
+
 
 # ─── Config ───
 
@@ -728,6 +732,20 @@ def main():
     if not miner_addr:
         print("❌ Miner address not configured. Run first: python3 scripts/setup.py")
         sys.exit(1)
+
+    # LLM privacy warning
+    solver_mode = config.get("solver_mode", "local_only")
+    if solver_mode in ("auto", "llm"):
+        print()
+        print("=" * 70)
+        print(f"⚠️  PRIVACY WARNING: solver_mode is set to '{solver_mode}'.")
+        print("   Challenge content may be sent to third-party LLM APIs")
+        print("   (OpenAI, Google, Anthropic).")
+        print()
+        print("   To keep all data local, set solver_mode to 'local_only'")
+        print("   in config.json.")
+        print("=" * 70)
+        print()
 
     # Version check
     print(f"🔧 Miner version: {MINER_VERSION}")

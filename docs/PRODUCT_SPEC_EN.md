@@ -39,8 +39,12 @@
 
 ```
 Step 1: Install mining tools (1 min)
-  git clone https://github.com/0xVeryBigOrange/clawchain
-  cd clawchain && python3 scripts/setup.py
+  git clone https://github.com/0xVeryBigOrange/clawchain.git
+  cd clawchain
+  mkdir -p ~/.openclaw/workspace/skills
+  cp -r skill ~/.openclaw/workspace/skills/clawchain-miner
+  cd ~/.openclaw/workspace/skills/clawchain-miner
+  python3 scripts/setup.py
   → "✅ Wallet created, miner registered"
 
 Step 2: Start mining

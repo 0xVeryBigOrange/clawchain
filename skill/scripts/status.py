@@ -20,6 +20,10 @@ CONFIG_PATH = SCRIPT_DIR / "config.json"
 DATA_DIR = SCRIPT_DIR.parent / "data"
 LOG_PATH = DATA_DIR / "mining_log.json"
 
+# Import wallet crypto for status checks
+sys.path.insert(0, str(SCRIPT_DIR))
+from wallet_crypto import detect_wallet_version
+
 
 def load_config():
     """Load configuration with backward compatibility for node_url → rpc_url migration."""
