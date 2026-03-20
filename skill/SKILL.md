@@ -24,9 +24,22 @@ description: "ClawChain auto-mining — let your OpenClaw agent connect to ClawC
 
 ## First-Time Setup
 
-1. Run `python3 scripts/setup.py` — auto-generates wallet, saves keys, registers miner
-2. Ensure environment has `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `ANTHROPIC_API_KEY` (at least one)
-3. Optional: Edit `scripts/config.json` to adjust node address, LLM config, etc.
+1. Run `python3 scripts/setup.py` — auto-generates wallet (obfuscated key, 600 permissions), registers miner
+2. Ensure environment has `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `ANTHROPIC_API_KEY` (at least one; optional for local-only mining)
+3. Optional: Edit `scripts/config.json` to adjust `rpc_url`, `solver_mode`, LLM config, etc.
+4. Run `python3 scripts/doctor.py` to verify your setup
+
+### Wallet Security
+- Private keys are obfuscated (base64) at rest with 600 file permissions.
+- Override via env var: `export CLAWCHAIN_PRIVATE_KEY=<hex>`
+- **⚠️ This is a mining/test wallet. Do not store significant value.**
+
+### Solver Mode (`solver_mode` in config.json)
+- `auto` (default): Local solver first, LLM fallback
+- `local_only`: Local only, skip LLM challenges
+- `llm`: Always use LLM
+
+> In `auto`/`llm` modes, challenge prompts are sent to your LLM provider.
 
 ## Execution Flow (cron or manual)
 

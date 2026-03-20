@@ -5,8 +5,10 @@ Query on-chain challenges → Solve with LLM / local compute → Submit answers 
 """
 
 import argparse
+import ast
 import hashlib
 import json
+import operator
 import os
 import re
 import secrets
@@ -14,6 +16,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlparse
 
 try:
     import requests
@@ -32,12 +35,32 @@ DATA_DIR.mkdir(exist_ok=True)
 # ─── Config ───
 
 def load_config():
-    """Load configuration"""
+    """Load configuration with backward compatibility for node_url → rpc_url migration."""
     if not CONFIG_PATH.exists():
         print(f"❌ Config file not found: {CONFIG_PATH}")
         sys.exit(1)
     with open(CONFIG_PATH) as f:
-        return json.load(f)
+        config = json.load(f)
+
+    # Backward compat: migrate node_url → rpc_url
+    if "rpc_url" not in config and "node_url" in config:
+        print("⚠️  DEPRECATION: 'node_url' is deprecated, migrating to 'rpc_url'. Please update config.json.")
+        config["rpc_url"] = config.pop("node_url")
+        with open(CONFIG_PATH, "w") as f:
+            json.dump(config, f, indent=2)
+
+    if "rpc_url" not in config:
+        print("❌ 'rpc_url' not set in config.json")
+        sys.exit(1)
+
+    return config
+
+
+def warn_insecure_rpc(url):
+    """Warn if RPC URL uses plain HTTP on a non-localhost endpoint."""
+    parsed = urlparse(url)
+    if parsed.scheme == "http" and parsed.hostname not in ("localhost", "127.0.0.1", "::1"):
+        print(f"⚠️  SECURITY WARNING: RPC endpoint uses plain HTTP ({url}). Use HTTPS for production.")
 
 
 # ─── Chain API ───
@@ -174,12 +197,49 @@ def submit_two_phase(rpc_url, challenge_id, miner_addr, answer, delay=3):
     return reveal_result
 
 
+# ─── Safe Math Evaluator (replaces eval()) ───
+
+# Allowed AST node types for safe math evaluation
+_SAFE_OPS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.Mod: operator.mod,
+    ast.USub: operator.neg,
+    ast.UAdd: operator.pos,
+}
+
+
+def _safe_eval_node(node):
+    """Recursively evaluate an AST node containing only numbers and arithmetic ops."""
+    if isinstance(node, ast.Expression):
+        return _safe_eval_node(node.body)
+    elif isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+        return node.value
+    elif isinstance(node, ast.BinOp) and type(node.op) in _SAFE_OPS:
+        left = _safe_eval_node(node.left)
+        right = _safe_eval_node(node.right)
+        return _SAFE_OPS[type(node.op)](left, right)
+    elif isinstance(node, ast.UnaryOp) and type(node.op) in _SAFE_OPS:
+        operand = _safe_eval_node(node.operand)
+        return _SAFE_OPS[type(node.op)](operand)
+    else:
+        raise ValueError(f"Unsupported expression node: {type(node).__name__}")
+
+
+def safe_math_eval(expr: str):
+    """Safely evaluate a math expression string. Only supports numbers, +, -, *, /, %, ()."""
+    tree = ast.parse(expr.strip(), mode="eval")
+    return _safe_eval_node(tree)
+
+
 # ─── Local Solvers ───
 
 def solve_math(prompt):
-    """Local math computation"""
+    """Local math computation (safe, no eval())"""
     # Chinese format: "计算 123 + 456 的结果"
-    match = re.search(r'计算\s*([\d\s+\-*/().]+)\s*的结果', prompt)
+    match = re.search(r'计算\s*([\d\s+\-*/().%]+)\s*的结果', prompt)
     if match:
         expr = match.group(1).strip()
     else:
@@ -187,7 +247,7 @@ def solve_math(prompt):
         if match:
             expr = match.group(1).strip().rstrip("。.?")
         else:
-            match = re.search(r'([\d\s+\-*/().]+)', prompt)
+            match = re.search(r'([\d\s+\-*/().%]+)', prompt)
             if match:
                 expr = match.group(1).strip()
             else:
@@ -196,7 +256,7 @@ def solve_math(prompt):
     try:
         allowed = set("0123456789+-*/().% ")
         if all(c in allowed for c in expr):
-            result = eval(expr)
+            result = safe_math_eval(expr)
             if isinstance(result, float) and result == int(result):
                 return str(int(result))
             return str(result)
@@ -483,22 +543,47 @@ LLM_TYPES = {"text_summary", "sentiment", "translation", "classification", "enti
 
 
 def solve_challenge(challenge, config):
-    """Solve challenge: local first, LLM fallback"""
+    """Solve challenge based on solver_mode config.
+
+    solver_mode:
+      - "local_only": Only use local solvers; skip challenges that need LLM.
+      - "llm": Always attempt LLM (skip local).
+      - "auto" (default): Try local first, fall back to LLM.
+
+    Note: In "auto" and "llm" modes, the challenge prompt text is sent to an
+    external LLM provider (OpenAI / Google / Anthropic).
+    """
     ctype = challenge["type"]
     prompt = challenge["prompt"]
+    solver_mode = config.get("solver_mode", "auto")
 
-    # Try local solver first
-    if ctype in LOCAL_SOLVERS:
-        answer = LOCAL_SOLVERS[ctype](prompt)
+    if solver_mode == "local_only":
+        # Only local solvers
+        if ctype in LOCAL_SOLVERS:
+            answer = LOCAL_SOLVERS[ctype](prompt)
+            if answer:
+                return answer, "local"
+        return None, None
+
+    elif solver_mode == "llm":
+        # Always try LLM
+        answer = solve_with_llm(prompt, ctype, config)
         if answer:
-            return answer, "local"
+            return answer, "llm"
+        return None, None
 
-    # Fall back to LLM
-    answer = solve_with_llm(prompt, ctype, config)
-    if answer:
-        return answer, "llm"
+    else:
+        # auto: local first, LLM fallback
+        if ctype in LOCAL_SOLVERS:
+            answer = LOCAL_SOLVERS[ctype](prompt)
+            if answer:
+                return answer, "local"
 
-    return None, None
+        answer = solve_with_llm(prompt, ctype, config)
+        if answer:
+            return answer, "llm"
+
+        return None, None
 
 
 # ─── Logging ───
@@ -546,6 +631,8 @@ def main():
 
     config = load_config()
     rpc_url = config["rpc_url"]
+    warn_insecure_rpc(rpc_url)
+
     miner_addr = config.get("miner_address", "")
     miner_name = config.get("miner_name", "openclaw-miner")
     max_challenges = args.max or config.get("max_challenges_per_run", 5)

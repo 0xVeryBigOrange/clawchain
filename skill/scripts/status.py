@@ -7,6 +7,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 try:
     import requests
@@ -21,11 +22,32 @@ LOG_PATH = DATA_DIR / "mining_log.json"
 
 
 def load_config():
+    """Load configuration with backward compatibility for node_url → rpc_url migration."""
     if not CONFIG_PATH.exists():
         print(f"❌ Config file not found: {CONFIG_PATH}")
         sys.exit(1)
     with open(CONFIG_PATH) as f:
-        return json.load(f)
+        config = json.load(f)
+
+    # Backward compat: migrate node_url → rpc_url
+    if "rpc_url" not in config and "node_url" in config:
+        print("⚠️  DEPRECATION: 'node_url' is deprecated, migrating to 'rpc_url'. Please update config.json.")
+        config["rpc_url"] = config.pop("node_url")
+        with open(CONFIG_PATH, "w") as f:
+            json.dump(config, f, indent=2)
+
+    if "rpc_url" not in config:
+        print("❌ 'rpc_url' not set in config.json")
+        sys.exit(1)
+
+    return config
+
+
+def warn_insecure_rpc(url):
+    """Warn if RPC URL uses plain HTTP on a non-localhost endpoint."""
+    parsed = urlparse(url)
+    if parsed.scheme == "http" and parsed.hostname not in ("localhost", "127.0.0.1", "::1"):
+        print(f"⚠️  SECURITY WARNING: RPC endpoint uses plain HTTP ({url}). Use HTTPS for production.")
 
 
 def get_miner_stats(rpc_url, address):
@@ -74,6 +96,8 @@ def main():
 
     config = load_config()
     rpc_url = config["rpc_url"]
+    warn_insecure_rpc(rpc_url)
+
     address = config.get("miner_address", "")
 
     if not address:

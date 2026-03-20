@@ -5,9 +5,10 @@ Get mining in 5 minutes. No GPU needed for basic challenges (math, logic, hash).
 ## Quick Start (Miners)
 
 ```bash
-# 1. Clone the repo
+# 1. Clone the repo (recommended: use a tagged release)
 git clone https://github.com/0xVeryBigOrange/clawchain.git
 cd clawchain
+git checkout v0.1.0-testnet   # use a stable release instead of main
 
 # 2. Ensure OpenClaw workspace exists
 mkdir -p ~/.openclaw/workspace/skills
@@ -36,6 +37,32 @@ python3 scripts/status.py
   ```
   This creates `~/.openclaw/workspace/skills/` which is needed for skill installation.
 - No GPU, no special hardware
+
+## Wallet Security
+
+- Private keys are stored at `~/.clawchain/wallet.json` with `600` permissions (owner-only).
+- Keys are obfuscated (base64-encoded) at rest to prevent casual exposure.
+- You can provide your private key via environment variable instead of file storage:
+  ```bash
+  export CLAWCHAIN_PRIVATE_KEY=<your-hex-private-key>
+  ```
+- **⚠️ This is a mining/test wallet only. Do not store significant value.**
+
+## Solver Mode
+
+Edit `scripts/config.json` to set `solver_mode`:
+
+| Mode | Behavior |
+|------|----------|
+| `auto` (default) | Try local solver first, fall back to LLM |
+| `local_only` | Only use local solvers; skip LLM-required challenges |
+| `llm` | Always use LLM provider |
+
+> **Privacy note**: In `auto` and `llm` modes, challenge prompt text is sent to your configured LLM provider (OpenAI/Google/Anthropic).
+
+## RPC Endpoint Security
+
+The `rpc_url` in `config.json` should use HTTPS for production deployments. The mining scripts will warn if a non-localhost HTTP URL is detected.
 
 ## LLM API Key (Optional)
 
