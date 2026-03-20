@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+mining.db
+mining.db-wal
+mining.db-shm
