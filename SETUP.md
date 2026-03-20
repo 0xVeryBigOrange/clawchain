@@ -9,17 +9,20 @@ Get mining in 5 minutes. No GPU needed for basic challenges (math, logic, hash).
 git clone https://github.com/0xVeryBigOrange/clawchain.git
 cd clawchain
 
-# 2. Copy the mining skill to your OpenClaw workspace
+# 2. Ensure OpenClaw workspace exists
+mkdir -p ~/.openclaw/workspace/skills
+
+# 3. Copy the mining skill
 cp -r skill ~/.openclaw/workspace/skills/clawchain-miner
 
-# 3. Set up wallet and register as a miner
+# 4. Set up wallet and register as a miner
 cd ~/.openclaw/workspace/skills/clawchain-miner
 python3 scripts/setup.py
 
-# 4. Start mining
+# 5. Start mining
 python3 scripts/mine.py
 
-# 5. Check your status
+# 6. Check your status
 python3 scripts/status.py
 ```
 
@@ -27,11 +30,20 @@ python3 scripts/status.py
 
 - Python 3.9+
 - `requests` library (`pip install requests`)
-- OpenClaw workspace directory (`~/.openclaw/workspace/skills/` must exist)
-- **Optional**: `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `ANTHROPIC_API_KEY` for advanced challenges
+- [OpenClaw](https://github.com/openclaw/openclaw) installed and initialized:
+  ```bash
+  npm install -g openclaw && openclaw init
+  ```
+  This creates `~/.openclaw/workspace/skills/` which is needed for skill installation.
 - No GPU, no special hardware
 
-> **Note**: Basic challenges (math, logic, hash, text_transform) are solved locally without any LLM. Advanced challenges (translation, summarization, sentiment) require an LLM API key. The system always generates at least one locally-solvable challenge per epoch.
+## LLM API Key (Optional)
+
+Set one of: `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `ANTHROPIC_API_KEY`
+
+- **Without API key**: You can still mine. Basic challenges (math, logic, hash, text_transform) are solved locally. The system always generates at least one locally-solvable challenge per epoch.
+- **With API key**: You can also solve advanced challenges (translation, summarization, sentiment) for higher rewards (up to 3x).
+- **No API key ≠ can't mine. It just means lower success rate on advanced challenges.**
 
 ## How It Works
 

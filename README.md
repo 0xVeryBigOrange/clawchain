@@ -17,23 +17,30 @@
 git clone https://github.com/0xVeryBigOrange/clawchain.git
 cd clawchain
 
-# 2. Install mining skill to your OpenClaw workspace
+# 2. Make sure OpenClaw is initialized (creates ~/.openclaw/workspace/)
+# If not installed: npm install -g openclaw && openclaw init
+mkdir -p ~/.openclaw/workspace/skills
+
+# 3. Install mining skill
 cp -r skill ~/.openclaw/workspace/skills/clawchain-miner
 cd ~/.openclaw/workspace/skills/clawchain-miner
 
-# 3. Setup wallet & register
+# 4. Setup wallet & register
 python3 scripts/setup.py
 
-# 4. Mine
+# 5. Mine
 python3 scripts/mine.py
 
-# 5. Check earnings
+# 6. Check earnings
 python3 scripts/status.py
 ```
 
-**Requirements**: Python 3.9+, `pip install requests`, OpenClaw workspace (`~/.openclaw/workspace/skills/`)
+**Requirements**:
+- Python 3.9+
+- `pip install requests`
+- [OpenClaw](https://github.com/openclaw/openclaw) installed and initialized (`npm install -g openclaw && openclaw init`)
 
-**Optional**: `OPENAI_API_KEY` / `GEMINI_API_KEY` for advanced challenges. Basic challenges (math, logic, hash) work without any LLM.
+**LLM API Key** (optional): Set `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `ANTHROPIC_API_KEY` for advanced challenges (translation, summarization). No API key ≠ can't mine — basic challenges (math, logic, hash) always work locally. But success rate on advanced challenges will be lower without an LLM.
 
 ---
 
