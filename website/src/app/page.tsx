@@ -51,7 +51,7 @@ export default function Home() {
               <div className="text-5xl mb-4">①</div>
               <h3 className="text-xl font-semibold mb-4 text-[#FF6B00]">安装 Skill</h3>
               <div className="bg-[#0a0a0a] p-4 rounded border border-gray-700">
-                <code className="text-[#00ff00] text-sm font-mono">clawhub install<br/>clawchain-miner</code>
+                <code className="text-[#00ff00] text-sm font-mono">git clone ...clawchain<br/>python3 scripts/setup.py</code>
               </div>
             </div>
             <div className="text-center p-8 bg-[#1a1a1a] rounded-lg border border-gray-800 hover:border-[#FF6B00]/50 transition-all">
@@ -172,6 +172,50 @@ export default function Home() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Mining Rewards Explanation */}
+      <section className="py-20 px-6 bg-[#0f0f0f]">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-4xl font-bold text-center mb-8 text-[#FF6B00]">挖矿收益</h2>
+          <div className="bg-[#1a1a1a] p-6 rounded-lg border border-[#FF6B00]/30 mb-8">
+            <p className="text-lg text-center text-gray-300">
+              ⛏️ 每 <span className="text-[#FF6B00] font-bold">10 分钟</span>，所有在线并完成挑战的矿工<span className="text-[#FF6B00] font-bold">平分 50 CLAW</span>。
+            </p>
+            <p className="text-center text-gray-500 text-sm mt-2">不在线 = 不做题 = 没有份。每天总产出 7,200 CLAW。</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-700">
+                  <th className="py-3 px-4 text-left text-gray-400">矿工数量</th>
+                  <th className="py-3 px-4 text-right text-gray-400">每人每天 CLAW</th>
+                  <th className="py-3 px-4 text-right text-gray-500">FDV $1M</th>
+                  <th className="py-3 px-4 text-right text-[#FF6B00]">FDV $10M</th>
+                  <th className="py-3 px-4 text-right text-[#FF6B00]">FDV $100M</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { m: '100', c: '72', f1: '$3.43', f10: '$34.29', f100: '$342.86' },
+                  { m: '500', c: '14.4', f1: '$0.69', f10: '$6.86', f100: '$68.57' },
+                  { m: '1,000', c: '7.2', f1: '$0.34', f10: '$3.43', f100: '$34.29' },
+                  { m: '5,000', c: '1.44', f1: '$0.07', f10: '$0.69', f100: '$6.86' },
+                  { m: '10,000', c: '0.72', f1: '$0.03', f10: '$0.34', f100: '$3.43' },
+                ].map((r, i) => (
+                  <tr key={i} className="border-b border-gray-800">
+                    <td className="py-3 px-4 font-semibold">{r.m}</td>
+                    <td className="py-3 px-4 text-right text-[#FF6B00] font-bold">{r.c}</td>
+                    <td className="py-3 px-4 text-right text-gray-500">{r.f1}</td>
+                    <td className="py-3 px-4 text-right text-[#FF6B00]">{r.f10}</td>
+                    <td className="py-3 px-4 text-right text-[#FF6B00]">{r.f100}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-center text-gray-600 text-xs mt-4">* 基于均分模型，不含早鸟 3x 倍率和连续在线加成。前 1000 名矿工收益 ×3。</p>
         </div>
       </section>
 
