@@ -226,13 +226,13 @@ export default function Home() {
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="bg-[#1a1a1a] p-6 rounded-lg border border-gray-800 text-center">
               <div className="text-3xl mb-3">🔒</div>
-              <h3 className="font-semibold mb-2">质押门槛</h3>
-              <p className="text-gray-400 text-sm">100 CLAW 最低质押，防女巫攻击</p>
+              <h3 className="font-semibold mb-2">渐进式质押</h3>
+              <p className="text-gray-400 text-sm">早期免质押 → 10 CLAW → 100 CLAW，随网络增长提高门槛</p>
             </div>
             <div className="bg-[#1a1a1a] p-6 rounded-lg border border-gray-800 text-center">
               <div className="text-3xl mb-3">🎲</div>
-              <h3 className="font-semibold mb-2">VRF 随机分配</h3>
-              <p className="text-gray-400 text-sm">挑战随机分配，无法预知搭档</p>
+              <h3 className="font-semibold mb-2">随机种子分配</h3>
+              <p className="text-gray-400 text-sm">基于区块哈希的随机分配，无法预知搭档</p>
             </div>
             <div className="bg-[#1a1a1a] p-6 rounded-lg border border-gray-800 text-center">
               <div className="text-3xl mb-3">🕵️</div>
@@ -241,8 +241,8 @@ export default function Home() {
             </div>
             <div className="bg-[#1a1a1a] p-6 rounded-lg border border-gray-800 text-center">
               <div className="text-3xl mb-3">⚔️</div>
-              <h3 className="font-semibold mb-2">Slash 惩罚</h3>
-              <p className="text-gray-400 text-sm">作弊扣 10% 质押 + 声誉归零</p>
+              <h3 className="font-semibold mb-2">声誉惩罚</h3>
+              <p className="text-gray-400 text-sm">作弊 → 声誉 -500 + 暂停挖矿资格</p>
             </div>
           </div>
         </div>
