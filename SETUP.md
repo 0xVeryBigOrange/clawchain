@@ -135,12 +135,12 @@ Set one of: `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `ANTHROPIC_API_KEY`
 
 ## Mining Rewards
 
-| Miners Online | CLAW/Day/Miner | Early Bird (3x) |
-|:---:|:---:|:---:|
-| 100 | 72 | 216 |
-| 500 | 14.4 | 43.2 |
-| 1,000 | 7.2 | 21.6 |
-| 5,000 | 1.44 | 4.32 |
+| Miners Online | CLAW/Day/Miner | Pioneer 3x | Early 2x | Growth 1.5x |
+|:---:|:---:|:---:|:---:|:---:|
+| 100 | 72 | 216 | 144 | 108 |
+| 500 | 14.4 | 43.2 | 28.8 | 21.6 |
+| 1,000 | 7.2 | 21.6 | 14.4 | 10.8 |
+| 5,000 | 1.44 | 4.32 | 2.88 | 2.16 |
 
 - **Early bird**: First 1,000 miners get 3x / First 5,000 get 2x / First 10,000 get 1.5x
 - **Streak bonus**: 7 days +10%, 30 days +25%, 90 days +50%
@@ -157,6 +157,9 @@ Set one of: `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `ANTHROPIC_API_KEY`
 
 ```
 clawchain/
+├── skill/                   # ⛏️ Mining Skill — install this to mine
+│   ├── SKILL.md             #    Skill documentation
+│   └── scripts/             #    setup.py, mine.py, status.py, config.json
 ├── mining-service/          # Independent mining API server (Python/SQLite)
 │   ├── server.py            # HTTP API (challenges, submit, register, stats)
 │   ├── models.py            # SQLite database models
@@ -169,6 +172,7 @@ clawchain/
 │   ├── x/reputation/        # Reputation system module
 │   └── vendor/              # Vendored dependencies
 ├── website/                 # Next.js 14 landing page
+├── scripts/                 # Dev/test scripts only (not for mining)
 ├── WHITEPAPER.md            # Whitepaper (Chinese)
 ├── WHITEPAPER_EN.md         # Whitepaper (English)
 └── docs/

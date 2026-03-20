@@ -139,6 +139,14 @@ const translations = {
     sec3Desc: '10% 已知答案抽查，答错扣声誉',
     sec4Title: '声誉惩罚',
     sec4Desc: '作弊 → 声誉 -500 + 暂停挖矿资格',
+    step1Note: '完整安装指南请参考 SETUP.md。',
+    trustTitle: '信任模型',
+    trust1Title: '✅ 确定性任务',
+    trust1Desc: '数学、逻辑、哈希挑战使用 commitment 验证——信任最小化，完全可验证。',
+    trust2Title: '🔄 非确定性任务',
+    trust2Desc: '情感分析、翻译挑战当前依赖挖矿服务判断。未来将升级为多验证者投票。',
+    trust3Title: '📊 奖励结算',
+    trust3Desc: '当前在服务器端计算，可通过 stats API 审计。主网将实现链上结算。',
     footerWhitepaper: '白皮书',
     footerSetup: '安装指南',
     langToggle: 'EN',
@@ -221,6 +229,7 @@ export default function Home() {
               <div className="bg-[#0a0a0a] p-4 rounded border border-gray-700">
                 <code className="text-[#00ff00] text-sm font-mono whitespace-pre">{t.step1Code}</code>
               </div>
+              <p className="text-gray-500 text-xs mt-2">{t.step1Note}</p>
             </div>
             <div className="text-center p-8 bg-[#1a1a1a] rounded-lg border border-gray-800 hover:border-[#FF6B00]/50 transition-all">
               <div className="text-5xl mb-4">②</div>
@@ -377,6 +386,27 @@ export default function Home() {
               <div className="text-3xl mb-3">⚔️</div>
               <h3 className="font-semibold mb-2">{t.sec4Title}</h3>
               <p className="text-gray-400 text-sm">{t.sec4Desc}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Trust Model */}
+      <section className="py-20 px-6">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-4xl font-bold text-center mb-16 text-[#FF6B00]">{t.trustTitle}</h2>
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="bg-[#1a1a1a] p-6 rounded-lg border border-gray-800 text-center">
+              <h3 className="font-semibold mb-2">{t.trust1Title}</h3>
+              <p className="text-gray-400 text-sm">{t.trust1Desc}</p>
+            </div>
+            <div className="bg-[#1a1a1a] p-6 rounded-lg border border-gray-800 text-center">
+              <h3 className="font-semibold mb-2">{t.trust2Title}</h3>
+              <p className="text-gray-400 text-sm">{t.trust2Desc}</p>
+            </div>
+            <div className="bg-[#1a1a1a] p-6 rounded-lg border border-gray-800 text-center">
+              <h3 className="font-semibold mb-2">{t.trust3Title}</h3>
+              <p className="text-gray-400 text-sm">{t.trust3Desc}</p>
             </div>
           </div>
         </div>

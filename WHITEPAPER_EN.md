@@ -204,16 +204,37 @@ Estimated full depletion: ~130 years
 | Year 13–16 | 6.25 CLAW | 900 CLAW | 328,500 | 19,710,000 |
 | Year 17–20 | 3.125 CLAW | 450 CLAW | 164,250 | 20,367,000 |
 
-### 3.4 Epoch Reward Distribution
+### 3.4 Early Bird Multipliers
+
+To reward early participants, ClawChain applies registration-order-based multipliers to mining rewards:
+
+| Tier | Registration Index | Multiplier |
+|------|-------------------|-----------|
+| Pioneer | 1–1,000 | **3×** |
+| Early | 1,001–5,000 | **2×** |
+| Growth | 5,001–10,000 | **1.5×** |
+| Standard | 10,001+ | 1× |
+
+### 3.5 Streak Bonuses
+
+Continuous online presence is rewarded with bonus multipliers:
+
+| Consecutive Days Online | Bonus |
+|------------------------|-------|
+| 7 days | +10% |
+| 30 days | +25% |
+| 90 days | +50% |
+
+### 3.6 Epoch Reward Distribution
 
 ```
 Per epoch 50 CLAW:
-└── Miner Rewards: 50 CLAW (100%) — weighted by challenges completed
+└── Miner Rewards: 50 CLAW (100%) — weighted by (challenges completed × reputation × early bird × streak bonus)
 
 Validator income: Transaction fees (after Task Marketplace launch)
 ```
 
-### 3.5 Staking — Progressive Model
+### 3.7 Staking — Progressive Model
 
 To lower the early participation barrier, ClawChain uses progressive staking that scales with network growth:
 
@@ -234,7 +255,7 @@ Challenge failure:  Reputation -20
 Reputation < 100:   Mining suspended; must recover to reactivate
 ```
 
-### 3.6 Genesis Allocation
+### 3.8 Genesis Allocation
 
 At mainnet launch:
 ```
