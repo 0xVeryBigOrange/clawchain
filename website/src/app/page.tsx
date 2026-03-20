@@ -149,7 +149,7 @@ export default function Home() {
               </div>
               <div className="flex justify-between items-center bg-[#1a1a1a] p-4 rounded-lg border border-gray-800">
                 <span className="text-gray-400">挖矿分配</span>
-                <span className="font-semibold text-[#FF6B00]">60% (12,600,000)</span>
+                <span className="font-semibold text-[#FF6B00]">100% (21,000,000)</span>
               </div>
             </div>
             <div className="bg-[#1a1a1a] p-6 rounded-lg border border-gray-800">
@@ -157,39 +157,17 @@ export default function Home() {
               <div className="space-y-4">
                 <div>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-400">挖矿奖励 (60%)</span>
-                    <span className="text-[#FF6B00]">12,600,000</span>
+                    <span className="text-gray-400">挖矿奖励 (100%)</span>
+                    <span className="text-[#FF6B00]">21,000,000</span>
                   </div>
                   <div className="w-full bg-gray-800 rounded-full h-3">
-                    <div className="bg-[#FF6B00] h-3 rounded-full" style={{width: '60%'}}></div>
+                    <div className="bg-[#FF6B00] h-3 rounded-full" style={{width: '100%'}}></div>
                   </div>
                 </div>
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-400">创始团队 (15%)</span>
-                    <span className="text-[#FF6B00]">3,150,000</span>
-                  </div>
-                  <div className="w-full bg-gray-800 rounded-full h-3">
-                    <div className="bg-[#FF8C00] h-3 rounded-full" style={{width: '15%'}}></div>
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-400">生态基金 (15%)</span>
-                    <span className="text-[#FF6B00]">3,150,000</span>
-                  </div>
-                  <div className="w-full bg-gray-800 rounded-full h-3">
-                    <div className="bg-amber-600 h-3 rounded-full" style={{width: '15%'}}></div>
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-400">早期贡献者 (10%)</span>
-                    <span className="text-[#FF6B00]">2,100,000</span>
-                  </div>
-                  <div className="w-full bg-gray-800 rounded-full h-3">
-                    <div className="bg-amber-500 h-3 rounded-full" style={{width: '10%'}}></div>
-                  </div>
+                <div className="bg-green-900/20 border border-green-800/30 rounded-lg p-4 mt-4">
+                  <p className="text-green-400 text-sm font-semibold mb-1">🏆 真正的公平发射</p>
+                  <p className="text-gray-400 text-xs">零预挖、零团队分配、零生态基金。每一个 CLAW 都是矿工挖出来的。</p>
+                  <p className="text-gray-500 text-xs mt-1">Every single CLAW was mined, not printed.</p>
                 </div>
               </div>
             </div>
