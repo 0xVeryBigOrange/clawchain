@@ -95,21 +95,21 @@ func TestGenerateChallengesNoMiners(t *testing.T) {
 func TestGetBlockReward(t *testing.T) {
 	k, _, _ := setupKeeper(t)
 
-	// Epoch 0 (height 0): 30,000,000 uclaw (30 CLAW miner pool per epoch)
+	// Epoch 0 (height 0): 50,000,000 uclaw (50 CLAW miner pool per epoch — 100% Fair Launch)
 	r := k.GetBlockReward(0)
-	require.Equal(t, int64(30_000_000), r)
+	require.Equal(t, int64(50_000_000), r)
 
-	// Height 5000 (epoch 50): still 30,000,000 (no halving yet)
+	// Height 5000 (epoch 50): still 50,000,000 (no halving yet)
 	r = k.GetBlockReward(5000)
-	require.Equal(t, int64(30_000_000), r)
+	require.Equal(t, int64(50_000_000), r)
 
-	// Height 21,000,000 (epoch 210,000): first halving → 15,000,000
+	// Height 21,000,000 (epoch 210,000): first halving → 25,000,000
 	r = k.GetBlockReward(21_000_000)
-	require.Equal(t, int64(15_000_000), r)
+	require.Equal(t, int64(25_000_000), r)
 
-	// Height 42,000,000 (epoch 420,000): second halving → 7,500,000
+	// Height 42,000,000 (epoch 420,000): second halving → 12,500,000
 	r = k.GetBlockReward(42_000_000)
-	require.Equal(t, int64(7_500_000), r)
+	require.Equal(t, int64(12_500_000), r)
 }
 
 func TestGetBlockRewardMinimum(t *testing.T) {
@@ -549,21 +549,33 @@ func TestAccumulateEpochRewards(t *testing.T) {
 	k, ctx, _ := setupKeeper(t)
 	store := ctx.KVStore(k.StoreKey())
 
-	// 第一个 epoch
+	// 100% Fair Launch: AccumulateEpochRewards 不再写入 validator/eco 数据
 	k.AccumulateEpochRewards(ctx, 1)
 
 	var valTotal, ecoTotal int64
-	json.Unmarshal(store.Get([]byte("validator_pool_total")), &valTotal)
-	json.Unmarshal(store.Get([]byte("eco_fund_total")), &ecoTotal)
-	require.Equal(t, int64(10_000_000), valTotal)
-	require.Equal(t, int64(10_000_000), ecoTotal)
+	// 验证 validator_pool 和 eco_fund 为 0（未写入 store）
+	valBz := store.Get([]byte("validator_pool_total"))
+	ecoBz := store.Get([]byte("eco_fund_total"))
+	if valBz != nil {
+		json.Unmarshal(valBz, &valTotal)
+	}
+	if ecoBz != nil {
+		json.Unmarshal(ecoBz, &ecoTotal)
+	}
+	require.Equal(t, int64(0), valTotal)
+	require.Equal(t, int64(0), ecoTotal)
 
-	// 第二个 epoch（累加）
+	// 第二个 epoch — 仍然是 0
 	k.AccumulateEpochRewards(ctx, 2)
-	json.Unmarshal(store.Get([]byte("validator_pool_total")), &valTotal)
-	json.Unmarshal(store.Get([]byte("eco_fund_total")), &ecoTotal)
-	require.Equal(t, int64(20_000_000), valTotal)
-	require.Equal(t, int64(20_000_000), ecoTotal)
+	valTotal, ecoTotal = 0, 0
+	if valBz = store.Get([]byte("validator_pool_total")); valBz != nil {
+		json.Unmarshal(valBz, &valTotal)
+	}
+	if ecoBz = store.Get([]byte("eco_fund_total")); ecoBz != nil {
+		json.Unmarshal(ecoBz, &ecoTotal)
+	}
+	require.Equal(t, int64(0), valTotal)
+	require.Equal(t, int64(0), ecoTotal)
 }
 
 // ──────────────────────────────────────────────

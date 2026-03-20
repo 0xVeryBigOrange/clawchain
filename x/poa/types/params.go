@@ -9,9 +9,9 @@ const (
 	DefaultEpochBlocks           int64  = 100            // 10 分钟
 	DefaultHalvingEpochs         uint64 = 210_000        // ~4 年
 	DefaultInitialReward         uint64 = 50_000_000     // 50 CLAW/epoch
-	DefaultMinerRewardShare      uint32 = 60
-	DefaultValidatorRewardShare  uint32 = 20
-	DefaultEcoFundRewardShare    uint32 = 20
+	DefaultMinerRewardShare      uint32 = 100  // 100% Fair Launch — all rewards to miners
+	DefaultValidatorRewardShare  uint32 = 0   // validators earn from tx fees (Task Marketplace)
+	DefaultEcoFundRewardShare    uint32 = 0   // no eco fund pre-allocation
 	DefaultMaxMinersPerIP        uint32 = 3
 	DefaultNewMinerCooldownEpochs uint64 = 100
 )

@@ -672,12 +672,11 @@ func selectMiners(miners []string, k int, rng *rand.Rand) []string {
 }
 
 // GetBlockReward 获取当前区块高度对应 epoch 的矿工池奖励（带减半逻辑）
-// 返回值单位: uclaw。每 epoch 总奖励 50 CLAW = 50,000,000 uclaw，其中矿工池 60% = 30,000,000 uclaw。
-// 此函数返回矿工池部分，按活跃矿工数分配给各矿工。
+// 返回值单位: uclaw。每 epoch 总奖励 50 CLAW = 50,000,000 uclaw，100% 归矿工（Fair Launch）。
 func (k Keeper) GetBlockReward(height int64) int64 {
 	const (
 		epochBlocks       = int64(100)
-		initialMinerPool  = int64(30_000_000) // 30 CLAW in uclaw (60% of 50 CLAW epoch reward)
+		initialMinerPool  = int64(50_000_000) // 50 CLAW in uclaw (100% Fair Launch)
 		halvingEpochs     = int64(210_000)
 		minReward         = int64(1)          // 最低奖励 1 uclaw
 	)
@@ -695,46 +694,16 @@ func (k Keeper) GetBlockReward(height int64) int64 {
 	return reward
 }
 
-// AccumulateEpochRewards 在 EndBlock 中每 epoch 结束时累加验证者池和生态基金
-// 每 epoch 总奖励 50 CLAW = 50,000,000 uclaw
-//   - 矿工池 60% = 30 CLAW（已在提交时处理）
-//   - 验证者池 20% = 10 CLAW = 10,000,000 uclaw → store key "validator_pool_total"
-//   - 生态基金 20% = 10 CLAW = 10,000,000 uclaw → store key "eco_fund_total"
-// 注：实际的链上铸币和转账将在主网阶段实现，当前仅记账。
+// AccumulateEpochRewards 在 EndBlock 中每 epoch 结束时记录奖励。
+// 100% Fair Launch: 所有 50 CLAW 归矿工，验证者和生态基金分配为 0。
+// 验证者未来从交易手续费（Task Marketplace）获取收益。
 func (k Keeper) AccumulateEpochRewards(ctx sdk.Context, epoch uint64) {
-	const (
-		validatorRewardPerEpoch = int64(10_000_000) // 10 CLAW in uclaw
-		ecoFundRewardPerEpoch   = int64(10_000_000) // 10 CLAW in uclaw
-	)
-
-	store := ctx.KVStore(k.storeKey)
-
-	// 验证者池累加
-	valKey := []byte("validator_pool_total")
-	valTotal := int64(0)
-	if bz := store.Get(valKey); bz != nil {
-		json.Unmarshal(bz, &valTotal)
-	}
-	valTotal += validatorRewardPerEpoch
-	valBz, _ := json.Marshal(valTotal)
-	store.Set(valKey, valBz)
-
-	// 生态基金累加
-	ecoKey := []byte("eco_fund_total")
-	ecoTotal := int64(0)
-	if bz := store.Get(ecoKey); bz != nil {
-		json.Unmarshal(bz, &ecoTotal)
-	}
-	ecoTotal += ecoFundRewardPerEpoch
-	ecoBz, _ := json.Marshal(ecoTotal)
-	store.Set(ecoKey, ecoBz)
-
-	k.Logger(ctx).Info("Epoch 奖励累计",
+	// Fair Launch: validator_pool 和 eco_fund 均为 0，无需累加
+	k.Logger(ctx).Info("Epoch 奖励记录 (100% Fair Launch)",
 		"epoch", epoch,
-		"validator_pool_added", validatorRewardPerEpoch,
-		"validator_pool_total", valTotal,
-		"eco_fund_added", ecoFundRewardPerEpoch,
-		"eco_fund_total", ecoTotal,
+		"miner_pool", int64(50_000_000),
+		"validator_pool", int64(0),
+		"eco_fund", int64(0),
 	)
 }
 

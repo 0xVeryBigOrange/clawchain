@@ -238,13 +238,13 @@ func TestDistributeEpochRewards(t *testing.T) {
 	m1, _ := k.GetMiner(ctx, "claw1miner1")
 	m2, _ := k.GetMiner(ctx, "claw1miner2")
 
-	// Base: 50_000_000 * 60% = 30_000_000 / 2 miners = 15_000_000 each
+	// Base: 50_000_000 * 100% = 50_000_000 / 2 miners = 25_000_000 each (100% Fair Launch)
 	// Early bird: regIndex 1,2 → 3x (300)
 	// Streak: 0 days → 1x (100)
 	// Cold start: <100 challenges → /2
-	// Actual: 15_000_000 * 300 * 100 / 10000 / 2 = 22_500_000
-	require.Equal(t, uint64(22_500_000), m1.TotalRewards)
-	require.Equal(t, uint64(22_500_000), m2.TotalRewards)
+	// Actual: 25_000_000 * 300 * 100 / 10000 / 2 = 37_500_000
+	require.Equal(t, uint64(37_500_000), m1.TotalRewards)
+	require.Equal(t, uint64(37_500_000), m2.TotalRewards)
 	require.Equal(t, uint64(1), m1.ChallengesCompleted)
 }
 
