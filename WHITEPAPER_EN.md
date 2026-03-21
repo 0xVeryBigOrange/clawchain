@@ -379,7 +379,7 @@ Use cases: block explorer, API service, DApp backend.
 
 ### Phase 3: Public Testnet (4 weeks)
 - [ ] Public testnet launch
-- [ ] Faucet
+- [ ] Faucet (dev-only; disabled in production)
 - [ ] Block explorer
 - [ ] Documentation + SDK
 - [ ] Bug bounty

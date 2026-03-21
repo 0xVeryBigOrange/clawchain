@@ -7,6 +7,7 @@ Query on-chain challenges → Solve with LLM / local compute → Submit answers 
 import argparse
 import ast
 import hashlib
+import hmac as hmac_mod
 import json
 import operator
 import os
@@ -160,13 +161,16 @@ def check_miner_registered(rpc_url, address):
         return False
 
 
-def auto_register(rpc_url, address, name):
+def auto_register(rpc_url, address, name, auth_secret=None):
     """Auto-register miner on chain"""
     try:
+        payload = {"address": address, "name": name, "miner_version": MINER_VERSION}
+        if auth_secret:
+            payload["auth_secret"] = auth_secret
         resp = requests.post(
             f"{rpc_url}/clawchain/miner/register",
             headers={"Content-Type": "application/json"},
-            json={"address": address, "name": name, "miner_version": MINER_VERSION},
+            json=payload,
             timeout=10
         )
         if resp.status_code == 409:
@@ -194,17 +198,29 @@ def query_pending_challenges(rpc_url):
         return []
 
 
-def submit_answer(rpc_url, challenge_id, miner_addr, answer):
+def compute_auth_token(auth_secret, challenge_id, answer):
+    """Compute HMAC-SHA256 auth token for submission authentication."""
+    if not auth_secret:
+        return ""
+    return hmac_mod.new(
+        auth_secret.encode(), f"{challenge_id}|{answer}".encode(), "sha256"
+    ).hexdigest()
+
+
+def submit_answer(rpc_url, challenge_id, miner_addr, answer, auth_secret=None):
     """Submit answer (simplified, direct submit in DEV mode)"""
     try:
+        payload = {
+            "challenge_id": challenge_id,
+            "miner_address": miner_addr,
+            "answer": answer,
+        }
+        if auth_secret:
+            payload["auth_token"] = compute_auth_token(auth_secret, challenge_id, answer)
         resp = requests.post(
             f"{rpc_url}/clawchain/challenge/submit",
             headers={"Content-Type": "application/json"},
-            json={
-                "challenge_id": challenge_id,
-                "miner_address": miner_addr,
-                "answer": answer,
-            },
+            json=payload,
             timeout=10
         )
         if resp.status_code == 409:
@@ -735,6 +751,19 @@ def main():
         print("❌ Miner address not configured. Run first: python3 scripts/setup.py")
         sys.exit(1)
 
+    # Load auth_secret from wallet for HMAC authentication
+    wallet_path = config.get("wallet_path", "~/.clawchain/wallet.json")
+    auth_secret = None
+    try:
+        wallet_data = crypto_load_wallet(Path(wallet_path).expanduser())
+        auth_secret = wallet_data.get("auth_secret")
+        if auth_secret:
+            print("🔑 HMAC authentication enabled")
+        else:
+            print("⚠️ No auth_secret in wallet — submissions will be unauthenticated (run setup.py to upgrade)")
+    except Exception:
+        print("⚠️ Could not load wallet for auth — submissions will be unauthenticated")
+
     # LLM privacy warning
     solver_mode = config.get("solver_mode", "local_only")
     if solver_mode in ("auto", "llm"):
@@ -758,7 +787,7 @@ def main():
     # Check registration
     if not check_miner_registered(rpc_url, miner_addr):
         print("📝 Miner not registered, auto-registering...")
-        if not auto_register(rpc_url, miner_addr, miner_name):
+        if not auto_register(rpc_url, miner_addr, miner_name, auth_secret=auth_secret):
             print("❌ Registration failed, exiting")
             sys.exit(1)
         print("✅ Registration successful")
@@ -821,7 +850,7 @@ def main():
             print("   🔐 Using commit-reveal two-phase submission")
             result = submit_two_phase(rpc_url, cid, miner_addr, answer, args.reveal_delay)
         else:
-            result = submit_answer(rpc_url, cid, miner_addr, answer)
+            result = submit_answer(rpc_url, cid, miner_addr, answer, auth_secret=auth_secret)
             if result is None:
                 print("   🔐 Direct submit failed, trying commit-reveal")
                 result = submit_two_phase(rpc_url, cid, miner_addr, answer, args.reveal_delay)

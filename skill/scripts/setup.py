@@ -106,10 +106,14 @@ def generate_wallet(private_key_override=None):
     data5 = convertbits(list(ripemd), 8, 5)
     address = bech32_encode("claw", data5)
 
+    # Generate HMAC auth secret for submission authentication
+    auth_secret = secrets.token_hex(32)
+
     return {
         "address": address,
         "private_key": private_key.hex(),
         "public_key_hash": ripemd.hex(),
+        "auth_secret": auth_secret,
     }
 
 
@@ -121,13 +125,16 @@ def load_wallet(wallet_path, passphrase=None):
     return crypto_load_wallet(wallet_path, passphrase=passphrase)
 
 
-def register_miner(rpc_url, address, name):
+def register_miner(rpc_url, address, name, auth_secret=None):
     """Register miner on chain"""
     try:
+        payload = {"address": address, "name": name}
+        if auth_secret:
+            payload["auth_secret"] = auth_secret
         resp = requests.post(
             f"{rpc_url}/clawchain/miner/register",
             headers={"Content-Type": "application/json"},
-            json={"address": address, "name": name},
+            json=payload,
             timeout=10
         )
         if resp.status_code == 409:
@@ -218,7 +225,14 @@ def main():
                 address = existing["address"]
                 print(f"\nUsing existing wallet: {address}")
                 print(f"\n📝 Registering miner on chain...")
-                result = register_miner(rpc_url, address, miner_name)
+                # Generate auth_secret if missing from existing wallet
+                existing_auth = existing.get("auth_secret")
+                if not existing_auth:
+                    existing_auth = secrets.token_hex(32)
+                    existing["auth_secret"] = existing_auth
+                    save_wallet(existing, wallet_path, insecure=args.insecure)
+                    print("   🔑 Generated auth_secret for existing wallet (upgrade)")
+                result = register_miner(rpc_url, address, miner_name, auth_secret=existing_auth)
                 print(f"   {'✅' if result.get('success') else '⚠️'} {result.get('message', '')}")
                 config["miner_address"] = address
                 config["miner_name"] = miner_name
@@ -228,8 +242,13 @@ def main():
                 return
         else:
             address = existing["address"]
+            existing_auth = existing.get("auth_secret")
+            if not existing_auth:
+                existing_auth = secrets.token_hex(32)
+                existing["auth_secret"] = existing_auth
+                save_wallet(existing, wallet_path, insecure=args.insecure)
             print(f"Using existing wallet: {address}")
-            result = register_miner(rpc_url, address, miner_name)
+            result = register_miner(rpc_url, address, miner_name, auth_secret=existing_auth)
             print(f"{'✅' if result.get('success') else '⚠️'} {result.get('message', '')}")
             config["miner_address"] = address
             config["miner_name"] = miner_name
@@ -266,7 +285,7 @@ def main():
 
     # Register miner
     print(f"\n📝 Registering miner on chain...")
-    result = register_miner(rpc_url, wallet["address"], miner_name)
+    result = register_miner(rpc_url, wallet["address"], miner_name, auth_secret=wallet.get("auth_secret"))
     print(f"   {'✅' if result.get('success') else '⚠️'} {result.get('message', '')}")
 
     # Solver mode selection

@@ -89,6 +89,18 @@ If you have an older (unencrypted) wallet:
 python3 scripts/setup.py --migrate-wallet
 ```
 
+### Upgrade Wallet (v0.2.0+)
+
+If your wallet was created before v0.2.0, re-run setup to generate an `auth_secret` for HMAC-authenticated submissions:
+
+```bash
+python3 scripts/setup.py
+# Select "Use existing wallet" — setup will automatically generate and register
+# an auth_secret if one is missing.
+```
+
+Without `auth_secret`, your submissions will still be accepted during the Alpha transition period, but will be rejected in Beta.
+
 ### Insecure Mode (Not Recommended)
 
 ```bash

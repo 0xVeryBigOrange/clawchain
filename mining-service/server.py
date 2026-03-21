@@ -7,6 +7,7 @@ ClawChain Independent Mining Service
 
 import argparse
 import hashlib
+import hmac as hmac_mod
 import json
 import logging
 import os
@@ -42,7 +43,7 @@ SERVER_VERSION = "0.2.0"
 MIN_MINER_VERSION = "0.1.0"
 DEFAULT_PORT = 1317
 MAX_MINERS_PER_IP = 3
-DEV_MODE = os.getenv("CLAWCHAIN_DEV", "1") == "1"
+DEV_MODE = os.getenv("CLAWCHAIN_DEV_MODE", os.getenv("CLAWCHAIN_DEV", "0")) == "1"
 REQUIRED_SUBMISSIONS = 1 if DEV_MODE else 3
 MIN_MAJORITY = 1 if DEV_MODE else 2
 FAUCET_AMOUNT = 200_000_000  # 200 CLAW in uclaw
@@ -210,6 +211,7 @@ class MiningHandler(BaseHTTPRequestHandler):
         ch_id = body.get("challenge_id", "")
         miner_addr = body.get("miner_address", "")
         answer = body.get("answer", "")
+        auth_token = body.get("auth_token", "")
 
         if not ch_id or not miner_addr or not answer:
             self._error("challenge_id, miner_address, and answer are required", 400)
@@ -225,6 +227,25 @@ class MiningHandler(BaseHTTPRequestHandler):
         if miner["status"] != "active":
             self._error("miner not active", 403)
             return
+
+        # HMAC authentication
+        stored_secret = miner["auth_secret"] if "auth_secret" in miner.keys() else None
+        if stored_secret:
+            if not auth_token:
+                self._error("auth_token required for authenticated miners", 403)
+                return
+            expected_token = hmac_mod.new(
+                stored_secret.encode(), f"{ch_id}|{answer}".encode(), "sha256"
+            ).hexdigest()
+            if not hmac_mod.compare_digest(auth_token, expected_token):
+                self._error("invalid auth_token", 403)
+                return
+        elif auth_token:
+            # Miner sent auth_token but server has no secret — accept (forward compat)
+            pass
+        else:
+            # Legacy miner without auth_secret — allow with warning during Alpha transition
+            logger.warning(f"Miner {miner_addr} submitted without HMAC auth (legacy client)")
 
         # 检查挑战
         ch = db.execute("SELECT * FROM challenges WHERE id=?", (ch_id,)).fetchone()
@@ -456,6 +477,7 @@ class MiningHandler(BaseHTTPRequestHandler):
         address = body.get("address", "")
         name = body.get("name", "")
         miner_version = body.get("miner_version", "")
+        auth_secret = body.get("auth_secret", "")
 
         if not address:
             self._error("address is required", 400)
@@ -529,19 +551,35 @@ class MiningHandler(BaseHTTPRequestHandler):
         reg_count = int(get_global(db, "miner_count", "0")) + 1
         set_global(db, "miner_count", reg_count)
 
-        # Progressive staking requirement
+        # Progressive staking requirement — enforced for real
         stake_required = self._get_stake_requirement(db)
         staked_amount = 0
         if stake_required > 0:
-            # For new miners, staking is deducted from faucet/future rewards
-            # In testnet, we allow registration and track the stake debt
-            staked_amount = 0  # Will be enforced when miner has rewards
+            # Check if miner has enough balance from prior rewards
+            # For completely new miners with no history, check if they have
+            # rewards from a previous registration cycle
+            prior = db.execute(
+                "SELECT total_rewards, staked_amount FROM miners WHERE address=?",
+                (address,),
+            ).fetchone()
+            if prior:
+                available = (prior["total_rewards"] or 0) - (prior["staked_amount"] or 0)
+            else:
+                available = 0
+            if available < stake_required:
+                self._error(
+                    f"insufficient balance for staking: need {stake_required} uclaw, "
+                    f"available {available} uclaw",
+                    403,
+                )
+                return
+            staked_amount = stake_required
 
         # 插入矿工
         db.execute(
-            """INSERT INTO miners (address, name, registration_index, status, reputation, ip_address, staked_amount, staked_at)
-            VALUES (?, ?, ?, 'active', 500, ?, ?, CURRENT_TIMESTAMP)""",
-            (address, name or "miner", reg_count, client_ip, staked_amount),
+            """INSERT INTO miners (address, name, registration_index, status, reputation, ip_address, staked_amount, staked_at, auth_secret)
+            VALUES (?, ?, ?, 'active', 500, ?, ?, CURRENT_TIMESTAMP, ?)""",
+            (address, name or "miner", reg_count, client_ip, staked_amount, auth_secret or None),
         )
         db.commit()
 
@@ -655,6 +693,11 @@ class MiningHandler(BaseHTTPRequestHandler):
     # POST /clawchain/faucet
     # ═══════════════════════════════════════
     def handle_faucet(self, body):
+        # Faucet is dev-only; disabled in production to preserve "100% mined" narrative
+        if not DEV_MODE:
+            self._error("faucet disabled in production", 403)
+            return
+
         address = body.get("address", "")
         if not address:
             self._error("address is required", 400)
@@ -859,16 +902,16 @@ class MiningHandler(BaseHTTPRequestHandler):
                     staked = miner["staked_amount"] or 0
                     slash_amount = 0
 
-                    # Slashing: 3+ consecutive failures on spot checks → 10% stake
-                    if is_spot and new_failures >= 3 and staked > 0:
-                        slash_amount = staked // 10
-                        logger.warning(f"Miner {addr} slashed 10% stake ({slash_amount} uclaw): {new_failures} consecutive spot-check failures")
+                    # Slashing: 3+ consecutive failures → 10% of current stake
+                    if new_failures >= 3 and staked > 0:
+                        slash_amount = int(staked * 0.1)
+                        logger.warning(f"Miner {addr} slashed 10% stake ({slash_amount} uclaw): {new_failures} consecutive failures")
 
-                    # 连续答错 5 次以上 → 疑似作弊，-500 + 50% slash + suspended
-                    if new_failures > 5:
+                    # 连续答错 5 次以上 → 疑似作弊，-500 rep + 50% slash + suspended
+                    if new_failures >= 5:
                         new_rep = (miner["reputation"] or 500) - 500
                         if staked > 0:
-                            slash_amount = staked // 2  # 50% slash
+                            slash_amount = int(staked * 0.5)  # 50% slash (overrides 10%)
                         logger.warning(f"Miner {addr} suspected cheating: {new_failures} consecutive failures, slashed 50% stake")
 
                     new_status = miner["status"]
@@ -939,7 +982,8 @@ def main():
     _db = db
 
     logger.info(f"Database initialized: {DB_PATH}")
-    logger.info(f"DEV mode: {DEV_MODE}")
+    logger.info(f"DEV mode: {DEV_MODE} (CLAWCHAIN_DEV_MODE={os.getenv('CLAWCHAIN_DEV_MODE', 'unset')})")
+    logger.info(f"Faucet: {'ENABLED (dev-only)' if DEV_MODE else 'DISABLED (production)'}")
     logger.info(f"Required submissions: {REQUIRED_SUBMISSIONS}")
 
     # 启动 epoch 调度器

@@ -57,9 +57,12 @@ POST /clawchain/challenge/submit
 {
   "challenge_id": "<id>",
   "miner_address": "<claw1...>",
-  "answer": "<answer>"
+  "answer": "<answer>",
+  "auth_token": "<HMAC-SHA256(auth_secret, challenge_id|answer)>"
 }
 ```
+
+**HMAC Authentication**: Each submission must include an `auth_token` computed as `HMAC-SHA256(auth_secret, challenge_id + "|" + answer)`. The `auth_secret` is a 32-byte hex key generated during wallet setup and registered with the server. Submissions without a valid `auth_token` are rejected (HTTP 403) for authenticated miners. Legacy miners without `auth_secret` are allowed during Alpha transition.
 
 Server compares the submitted answer with `expected_answer`.
 
@@ -172,8 +175,10 @@ If the commitment does not match, the server is provably dishonest.
 | 1,000 – 5,000 | 10 CLAW |
 | 5,000+ | 100 CLAW |
 
-- Stake locked during active mining
-- **Unstake cooldown**: 7-day waiting period (not yet implemented)
+- Stake is enforced at registration: miners must have sufficient available balance (total_rewards - staked_amount)
+- Stake locked during active mining — cannot be withdrawn (Alpha; Beta adds unstake cooldown)
+- **Slashing is real**: actual stake is deducted (not just recorded)
+- **Unstake cooldown**: 7-day waiting period (planned for Beta)
 
 ## 8. Anti-Sybil
 
@@ -241,10 +246,11 @@ If the root does not match, the server has modified settlement data after anchor
 1. **Single server** — no P2P network, single point of trust/failure
 2. **Non-deterministic tasks** rely on server trust in single-miner mode
 3. **No on-chain settlement** — off-chain SQLite database (testnet)
-4. **No unstaking cooldown** implemented yet
-5. **No cryptographic signature verification** on submissions (address string only)
+4. **No unstaking cooldown** implemented yet (planned for Beta)
+5. **HMAC-based authentication** on submissions (symmetric key; full secp256k1 planned for mainnet)
 6. **IP-based anti-Sybil** is bypassable with proxies/VPNs
 7. **DEV mode** allows single-miner settlement (production requires 3)
+8. **Faucet** disabled in production; dev-only for testnet initial distribution
 
 ### Phased Roadmap
 
@@ -253,12 +259,16 @@ If the root does not match, the server has modified settlement data after anchor
 - Off-chain settlement with on-chain epoch anchoring
 - 20% spot-check rate
 - Single mining-service architecture
+- HMAC-authenticated submissions
+- Real staking enforcement with balance checks
+- Faucet disabled in production (dev-only)
 
 **Beta**:
 - Stake-weighted validation for non-deterministic tasks
 - Cosmos SDK Msg-based mining operations (MsgSubmitAnswer)
 - Open up generative tasks with proper verification
 - Advanced fraud detection
+- Unstaking cooldown period
 
 **Mainnet**:
 - Full secp256k1 signature verification on submissions
@@ -270,4 +280,4 @@ If the root does not match, the server has modified settlement data after anchor
 
 ---
 
-*Protocol version: 0.2.0 | Last updated: 2026-03-20*
+*Protocol version: 0.2.0 | Last updated: 2026-03-21*

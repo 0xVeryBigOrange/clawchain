@@ -115,6 +115,9 @@ CLAWCHAIN_DEV=1 ./clawchaind start --home "$CHAIN_HOME"
 - 10% of challenges are Spot Checks — wrong answer docks reputation by -50
 - New miners: 50% rewards for first 100 epochs (cool-start period)
 - First 1,000 miners get 3× early bird multiplier
+- Submissions are HMAC-authenticated (auth_secret generated during setup)
+- Staking is enforced at registration when miner count exceeds thresholds
+- Faucet is dev-only (disabled in production)
 
 ---
 

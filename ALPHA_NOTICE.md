@@ -48,6 +48,19 @@ Each epoch settlement is anchored for auditability:
 - Reward settlement is computed server-side (anchored for auditability, not yet on-chain)
 - RPC endpoint may change during alpha
 - Wallet encryption requires `cryptography` package
+- Chain node is operational but may restart during alpha stabilization
+
+## Faucet
+Faucet is disabled in production. During alpha testing, a dev-only faucet exists for initial token distribution on the testnet. This endpoint returns HTTP 403 when `CLAWCHAIN_DEV_MODE` is not set.
+
+## Submission Authentication
+Answer submissions require HMAC-SHA256 authentication. Miners generate an `auth_secret` during wallet setup, which is registered with the mining service. Each submission includes an `auth_token = HMAC-SHA256(auth_secret, challenge_id + "|" + answer)`. Legacy miners without `auth_secret` are allowed during the Alpha transition period but will be required in Beta.
+
+## Staking
+Staking is enforced at registration time. When the network has fewer than 1,000 active miners, staking is free. Above that threshold, miners must have sufficient balance from prior rewards to cover the stake requirement. Slashing is real: 3+ consecutive failures slash 10% of stake, 5+ consecutive failures slash 50% and suspend the miner.
+
+## Chain Node Status
+The Cosmos SDK chain node (`clawchaind`) is operational on testnet and produces blocks. It is used for epoch settlement anchoring (writing settlement roots as tx memos). The chain binary runs on port 26657 (CometBFT) and 1316 (REST API). The mining service operates independently on port 1317.
 
 ## What is NOT production-grade yet
 - Multi-validator consensus

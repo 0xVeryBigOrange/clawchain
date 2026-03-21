@@ -185,9 +185,44 @@ Miners do not communicate directly. Trust is mediated by consensus:
 - Environment variable override (`CLAWCHAIN_PRIVATE_KEY`) for external secret management.
 - **Testnet wallets should never hold significant value.**
 
-## 9. Known Limitations (Testnet)
+## 9. Faucet Access Control
 
-1. **No cryptographic signature verification** on submissions (address string only).
+The faucet endpoint (`POST /clawchain/faucet`) is **disabled in production**. It is only available when `CLAWCHAIN_DEV_MODE=1` is set in the environment. This ensures that all CLAW tokens in production are 100% mined, preserving the fair-launch narrative.
+
+In testnet/dev environments, the faucet provides initial token distribution for testing purposes.
+
+## 10. Submission Authentication (HMAC)
+
+As of v0.2.0, answer submissions are authenticated via HMAC-SHA256:
+
+1. **Wallet setup**: `setup.py` generates a 32-byte `auth_secret` stored in `wallet.json`.
+2. **Registration**: The `auth_secret` is sent to the server during miner registration (via HTTPS).
+3. **Submission**: Each answer submission includes `auth_token = HMAC-SHA256(auth_secret, challenge_id + "|" + answer)`.
+4. **Server verification**: The server recomputes the HMAC using the stored `auth_secret` and rejects mismatches with HTTP 403.
+5. **Backward compatibility**: Legacy miners without `auth_secret` are allowed during Alpha but will be required in Beta.
+
+This prevents miner impersonation — an attacker who knows a miner's address cannot submit answers on their behalf without the `auth_secret`.
+
+**What this does NOT prevent**: The `auth_secret` is shared between miner and server (symmetric HMAC), so it does not provide non-repudiation. Full secp256k1 signature verification is planned for mainnet.
+
+## 11. Staking Enforcement
+
+Staking is enforced at registration time with real balance checks:
+
+- **< 1,000 miners**: Free registration (no stake required).
+- **1,000–5,000 miners**: 10 CLAW required from prior rewards.
+- **5,000+ miners**: 100 CLAW required from prior rewards.
+
+If a miner's available balance (total_rewards - staked_amount) is insufficient, registration is rejected.
+
+**Slashing is real**: Staked amounts are actually deducted, not just recorded:
+- 3+ consecutive failures → 10% of staked amount slashed
+- 5+ consecutive failures → 50% of staked amount slashed + suspension
+- Slashed stake is NOT returned
+
+## 12. Known Limitations (Testnet)
+
+1. **HMAC-based authentication** (not full cryptographic signatures) on submissions.
 2. **Single-server architecture** — single point of trust/failure.
 3. **DEV mode simplifications** — single-miner settlement, direct submit allowed.
 4. **Non-deterministic challenges** excluded from Alpha mining (will return in Beta with proper verification).
@@ -226,8 +261,9 @@ Miners do not communicate directly. Trust is mediated by consensus:
 | Challenge distribution | Trust-minimized | Commitment prevents post-hoc modification |
 | Wallet/keys | Client-only | Server never receives private keys |
 | Network transport | TLS required | HTTP rejected by default on non-localhost |
-| Miner identity | Address-string only | No cryptographic signature verification (testnet) |
-| Staking enforcement | Server-trust | No on-chain staking contract yet |
+| Miner identity | HMAC-authenticated | Symmetric HMAC-SHA256; full secp256k1 signatures planned for mainnet |
+| Staking enforcement | Server-enforced | Real balance check at registration; slashing deducts actual stake |
+| Faucet | Dev-only | Disabled in production (CLAWCHAIN_DEV_MODE required) |
 
 ### Trust Level Definitions
 
