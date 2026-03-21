@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -89,7 +90,7 @@ func (c *ChainClient) GetPendingChallenges(ctx context.Context, minerAddr string
 	}
 
 	// Calculate current epoch (50-block epochs by default, configurable)
-	epochBlocks := int64(100) // default
+	epochBlocks := int64(50) // matches CLAWCHAIN_TEST_EPOCH; TODO: make configurable
 	epoch := height / epochBlocks
 
 	// Try to read the challenge for current epoch from ABCI store
@@ -271,30 +272,50 @@ func (c *ChainClient) rpcCall(ctx context.Context, method string, params interfa
 }
 
 func (c *ChainClient) abciQuery(ctx context.Context, path string, data []byte) ([]byte, error) {
-	params := map[string]interface{}{
-		"path":   fmt.Sprintf("%q", path),
-		"data":   fmt.Sprintf("%x", data),
-		"height": "0",
+	hexData := fmt.Sprintf("0x%x", data)
+
+	url := fmt.Sprintf("%s/abci_query?path=%q&data=%s&height=0",
+		c.cfg.NodeHTTPURL(), path, hexData)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
 	}
-	resp, err := c.rpcCall(ctx, "abci_query", params)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 
-	var qr struct {
-		Response struct {
-			Code  uint32 `json:"code"`
-			Value []byte `json:"value"`
-			Log   string `json:"log"`
-		} `json:"response"`
+	var result struct {
+		Result struct {
+			Response struct {
+				Code  uint32 `json:"code"`
+				Value string `json:"value"` // base64 encoded
+				Log   string `json:"log"`
+			} `json:"response"`
+		} `json:"result"`
 	}
-	if err := json.Unmarshal(resp, &qr); err != nil {
+	if err := json.Unmarshal(respBytes, &result); err != nil {
 		return nil, err
 	}
-	if qr.Response.Code != 0 {
-		return nil, fmt.Errorf("query failed: %s", qr.Response.Log)
+	if result.Result.Response.Code != 0 {
+		return nil, fmt.Errorf("query code %d: %s", result.Result.Response.Code, result.Result.Response.Log)
 	}
-	return qr.Response.Value, nil
+	if result.Result.Response.Value == "" {
+		return nil, nil
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(result.Result.Response.Value)
+	if err != nil {
+		return nil, fmt.Errorf("decode value: %w", err)
+	}
+	return decoded, nil
 }
 
 // GetMinerAddress returns the miner's bech32 address from the keyring.
