@@ -133,7 +133,7 @@ Not DePIN         → DeAIN (Decentralized AI Agent Infrastructure Network)
 
 Each epoch settlement is anchored for auditability:
 - After settlement, compute `settlement_root = SHA256(canonical_json_of_records)`
-- Anchor on-chain via transaction memo, or locally when chain is unavailable
+- Anchor locally as file-based settlement snapshots with chain liveness verification (Alpha); true on-chain anchoring in Beta
 - Anyone can verify: fetch records → recompute root → compare with anchor
 - **Anchoring improves transparency but does not fully decentralize the system**
 

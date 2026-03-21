@@ -91,7 +91,7 @@ python3 scripts/setup.py --migrate-wallet
 
 ### Upgrade Wallet (v0.2.0+)
 
-If your wallet was created before v0.2.0, re-run setup to generate an `auth_secret` for HMAC-authenticated submissions:
+If your wallet was created before v0.3.0, re-run setup to generate a secp256k1 keypair for signature-authenticated submissions (replaces HMAC):
 
 ```bash
 python3 scripts/setup.py

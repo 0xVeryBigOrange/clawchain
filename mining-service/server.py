@@ -9,7 +9,10 @@ import argparse
 import hashlib
 import hmac as hmac_mod
 import json
-from crypto_auth import verify_signature, check_nonce, update_nonce
+from crypto_auth import (
+    verify_signature, check_nonce, update_nonce,
+    verify_address_pubkey_binding,
+)
 import logging
 import os
 import re
@@ -232,6 +235,7 @@ class MiningHandler(BaseHTTPRequestHandler):
             return
 
         # ── Authentication: secp256k1 signature (primary) or HMAC (legacy fallback) ──
+        _pending_nonce = None  # set if secp256k1 auth succeeds; updated atomically with submission
         miner_pubkey = miner["public_key"] if "public_key" in miner.keys() else None
 
         if miner_pubkey and signature:
@@ -254,8 +258,8 @@ class MiningHandler(BaseHTTPRequestHandler):
                 self._error(sig_err, 403)
                 return
 
-            # 3. Update nonce (after successful verification)
-            update_nonce(db, miner_addr, nonce)
+            # 3. Nonce update deferred — done atomically with submission insert below
+            _pending_nonce = nonce
 
         elif miner_pubkey and not signature:
             # Miner has registered public key but didn't sign — reject
@@ -296,11 +300,14 @@ class MiningHandler(BaseHTTPRequestHandler):
             self._error("already submitted", 409)
             return
 
-        # 插入提交
+        # 插入提交 + update nonce atomically (same transaction)
         db.execute(
             "INSERT INTO submissions (challenge_id, miner_address, answer) VALUES (?, ?, ?)",
             (ch_id, miner_addr, answer),
         )
+        if _pending_nonce is not None:
+            # Atomic nonce update — same transaction as submission insert
+            update_nonce(db, miner_addr, _pending_nonce)
         db.commit()
 
         # 更新矿工活跃天
@@ -610,7 +617,7 @@ class MiningHandler(BaseHTTPRequestHandler):
                 return
             staked_amount = stake_required
 
-        # Validate public_key format if provided
+        # Validate public_key format and address binding if provided
         if public_key:
             try:
                 pk_hex = public_key.removeprefix("0x")
@@ -619,6 +626,17 @@ class MiningHandler(BaseHTTPRequestHandler):
                     return
             except ValueError:
                 self._error("public_key must be valid hex", 400)
+                return
+
+            # Verify address is correctly derived from public key
+            binding_ok, binding_err = verify_address_pubkey_binding(address, pk_hex)
+            if not binding_ok:
+                self._error(
+                    f"address/pubkey binding failed: {binding_err}. "
+                    f"The address must be derived from the public key via "
+                    f"RIPEMD160(SHA256(compressed_pubkey)) → bech32('claw')",
+                    400,
+                )
                 return
 
         # 插入矿工

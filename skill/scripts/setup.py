@@ -88,30 +88,51 @@ def warn_insecure_rpc(url):
 
 
 def generate_wallet(private_key_override=None):
-    """Generate a Cosmos-style wallet (claw prefix).
+    """Generate a Cosmos-style wallet (claw prefix) with secp256k1 keypair.
+
+    Address derivation (Cosmos SDK compatible):
+      1. Generate 32-byte secp256k1 private key
+      2. Derive uncompressed public key (64 bytes)
+      3. Compress to 33 bytes (02/03 prefix)
+      4. address = bech32("claw", RIPEMD160(SHA256(compressed_pubkey)))
 
     If private_key_override is provided (hex string), use it instead of generating.
     """
+    from eth_keys import keys as eth_keys
+
     if private_key_override:
         private_key = bytes.fromhex(private_key_override)
     else:
         private_key = secrets.token_bytes(32)
 
-    # Simplified: SHA256 + RIPEMD160 to simulate public key hash
-    # Real Cosmos SDK uses secp256k1; hash simulation is sufficient for testnet
-    sha = hashlib.sha256(private_key).digest()
+    # Derive secp256k1 public key
+    pk = eth_keys.PrivateKey(private_key)
+    pubkey_uncompressed = pk.public_key.to_bytes()  # 64 bytes, no 04 prefix
+
+    # Compress: 33 bytes (02 if y is even, 03 if odd)
+    x = pubkey_uncompressed[:32]
+    y = pubkey_uncompressed[32:]
+    prefix = b'\x02' if y[-1] % 2 == 0 else b'\x03'
+    compressed = prefix + x
+
+    # Cosmos SDK address: RIPEMD160(SHA256(compressed_pubkey))
+    sha = hashlib.sha256(compressed).digest()
     ripemd = hashlib.new("ripemd160", sha).digest()
 
     # bech32 encode
     data5 = convertbits(list(ripemd), 8, 5)
     address = bech32_encode("claw", data5)
 
-    # Generate HMAC auth secret for submission authentication
+    # Public key hex (uncompressed, for registration)
+    public_key_hex = pubkey_uncompressed.hex()
+
+    # Generate HMAC auth secret for legacy fallback
     auth_secret = secrets.token_hex(32)
 
     return {
         "address": address,
         "private_key": private_key.hex(),
+        "public_key": public_key_hex,
         "public_key_hash": ripemd.hex(),
         "auth_secret": auth_secret,
     }
@@ -125,10 +146,12 @@ def load_wallet(wallet_path, passphrase=None):
     return crypto_load_wallet(wallet_path, passphrase=passphrase)
 
 
-def register_miner(rpc_url, address, name, auth_secret=None):
+def register_miner(rpc_url, address, name, auth_secret=None, public_key=None):
     """Register miner on chain"""
     try:
         payload = {"address": address, "name": name}
+        if public_key:
+            payload["public_key"] = public_key
         if auth_secret:
             payload["auth_secret"] = auth_secret
         resp = requests.post(
