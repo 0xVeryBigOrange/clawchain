@@ -1,97 +1,114 @@
-# ClawChain Deployment Guide — Public Alpha
+# ClawChain Production Deployment Baseline
 
-## Architecture Overview
+## Minimum Viable Production Architecture
 
-ClawChain Public Alpha consists of two independent components:
+### Required Infrastructure
 
-| Component | Hosts | Purpose |
-|-----------|-------|---------|
-| **Website** | GitHub Pages | Static marketing site, install guide, tokenomics |
-| **Mining Service** | Your server (Mac mini, VPS, etc.) | Challenge generation, answer verification, reward settlement |
+| Component | Count | Purpose |
+|-----------|:-----:|---------|
+| Validator nodes | ≥3 | Consensus (2/3 fault tolerance requires 3+) |
+| Sentry nodes | ≥2 | Public RPC/API endpoints, DDoS protection |
+| Mining service | 1 | Off-chain challenge generation + caching (non-authoritative) |
+| Monitoring | 1 | Prometheus + Grafana or equivalent |
 
-> ⚠️ GitHub Pages only hosts the website. Mining requires a running backend service.
+### Validator Node Specification
 
-## Website Deployment
+- **OS**: Ubuntu 22.04 LTS or equivalent
+- **CPU**: 4+ cores
+- **RAM**: 16 GB minimum
+- **Storage**: 500 GB NVMe SSD (chain data grows ~1 GB/month estimated)
+- **Network**: 100 Mbps dedicated, static IP
+- **Ports**: 26656 (P2P), 26657 (RPC, restricted), 9090 (gRPC, restricted)
 
-The website is a static Next.js export deployed to GitHub Pages:
+### Deployment Topology
 
-```bash
-cd website && npm run build
-git push origin $(git subtree split --prefix website/out main):gh-pages --force
+```
+                    ┌─────────────┐
+   Miners ─────────►│  Sentry 1   │◄──── Public RPC/API
+                    │  (full node) │
+                    └──────┬──────┘
+                           │ P2P
+         ┌─────────────────┼─────────────────┐
+         │                 │                 │
+    ┌────▼────┐      ┌────▼────┐      ┌────▼────┐
+    │ Val 1   │◄────►│ Val 2   │◄────►│ Val 3   │
+    │(private)│      │(private)│      │(private)│
+    └─────────┘      └─────────┘      └─────────┘
 ```
 
-Live at: https://0xverybigorange.github.io/clawchain/
+### Key Management
 
-## Mining Service Deployment
+- Validator keys stored in encrypted keyring (never on sentry nodes)
+- Operator keys separate from validator consensus keys
+- KMS integration recommended for production (tmkms or similar)
 
-### Minimum Requirements
-- Python 3.9+
-- SQLite (included with Python)
-- ~100MB RAM
-- Stable internet connection
-- Open port for HTTPS (via Cloudflare Tunnel or reverse proxy)
+### Monitoring & Alerting
 
-### Recommended Setups
+Required metrics:
+- Block height progression (stall detection)
+- Validator missed blocks (>10 = alert)
+- P2P peer count (< 2 = alert)
+- Disk usage
+- Memory/CPU utilization
+- gRPC query latency
 
-| Scale | Setup | Notes |
-|-------|-------|-------|
-| **Dev/Testing** | Mac mini + Cloudflare quick tunnel | Current testnet setup. URL changes on restart. |
-| **Internal Alpha** | Mac mini + Cloudflare named tunnel | Stable URL, free, good for <100 miners |
-| **Public Alpha** | VPS ($5-10/mo) + own domain | DigitalOcean/Hetzner/Vultr, stable HTTPS |
-| **Production** | Dedicated server + load balancer | For mainnet launch |
+### Backup & Recovery
 
-### Starting the Service
+- **State sync snapshots**: every 1000 blocks
+- **Genesis backup**: stored off-machine
+- **Validator key backup**: encrypted, stored separately
+- **Recovery procedure**: documented, tested quarterly
 
-```bash
-cd mining-service
-python3 server.py  # Starts on port 1317
-```
+### Restart Policy
 
-### With Cloudflare Tunnel (current)
+- systemd service with `Restart=always`
+- `RestartSec=5`
+- Automatic state sync on major version changes
+- Manual intervention for chain halt scenarios
 
-```bash
-# Quick tunnel (URL changes on restart)
-cloudflared tunnel --url http://localhost:1317
+## Current State vs Production Baseline
 
-# Or use the auto-update script
-bash scripts/start_tunnel.sh
-```
+| Requirement | Current | Production |
+|-------------|:-------:|:----------:|
+| Validator count | 1 | ≥3 |
+| Sentry nodes | 0 | ≥2 |
+| DDoS protection | None | Sentry architecture |
+| Monitoring | None | Prometheus + alerts |
+| Key management | File-based test keyring | KMS or encrypted |
+| Backups | None | Automated snapshots |
+| Recovery plan | None | Documented + tested |
+| Restart policy | Manual nohup | systemd service |
 
-### With LaunchAgent (macOS auto-start)
+## Multi-Validator Setup
 
-```bash
-# Mining service
-launchctl load ~/Library/LaunchAgents/com.clawchain.mining-service.plist
-
-# Tunnel
-launchctl load ~/Library/LaunchAgents/com.clawchain.tunnel.plist
-```
-
-## Public Alpha Limitations
-
-- Single server architecture (no P2P replication)
-- RPC endpoint may change during alpha
-- Testnet may reset — mining history could be cleared
-- SQLite database (not distributed ledger)
-
-## Monitoring
+### Adding New Validators
 
 ```bash
-# Check service health
-curl http://localhost:1317/clawchain/stats
-
-# Check version
-curl http://localhost:1317/clawchain/version
-
-# Check tunnel URL
-cat /tmp/clawchain-tunnel-url.txt
+# On new validator machine:
+clawchaind init validator-2 --chain-id clawchain-mainnet-1
+clawchaind keys add validator-2
+# Transfer stake tokens to the new validator address
+# Create validator tx:
+clawchaind tx staking create-validator \
+  --amount=10000000uclaw \
+  --pubkey=$(clawchaind tendermint show-validator) \
+  --moniker="validator-2" \
+  --commission-rate="0.10" \
+  --commission-max-rate="0.20" \
+  --commission-max-change-rate="0.01" \
+  --min-self-delegation="1" \
+  --from=validator-2 \
+  --chain-id=clawchain-mainnet-1
 ```
 
-## Migration to Production
+### Validator Set Requirements
 
-For mainnet launch, plan to:
-1. Replace SQLite with on-chain state (Cosmos SDK modules)
-2. Replace single server with validator network
-3. Replace Cloudflare tunnel with dedicated domain + TLS
-4. Add P2P challenge distribution
-5. Implement majority-vote verification for non-deterministic tasks
+- **Minimum for formal launch**: 3 validators (tolerate 1 failure)
+- **Recommended**: 5-7 validators
+- **Max for initial launch**: 21 (manageable coordination)
+
+## Migration Path
+
+1. **Current** → **Pre-launch testnet**: Add 2 more validator nodes
+2. **Pre-launch testnet** → **Genesis launch**: Fresh genesis with 3+ validators, distribute genesis stake
+3. **Post-launch**: Add validators through governance / staking
