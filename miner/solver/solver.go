@@ -52,22 +52,40 @@ func (s *Solver) Solve(ctx context.Context, challenge Challenge) (string, error)
 	var answer string
 	var err error
 
+	// Try local solver first (no LLM needed for deterministic challenges)
 	switch challenge.Type {
 	case ChallengeMath:
+		if localAnswer, ok := solveMathLocal(challenge.Prompt); ok {
+			s.logger.Info("Solved locally (math)", "id", challenge.ID)
+			return localAnswer, nil
+		}
 		answer, err = s.solveMath(ctx, challenge.Prompt)
 	case ChallengeLogic:
+		if localAnswer, ok := solveLogicLocal(challenge.Prompt); ok {
+			s.logger.Info("Solved locally (logic)", "id", challenge.ID)
+			return localAnswer, nil
+		}
 		answer, err = s.solveLogic(ctx, challenge.Prompt)
+	case "classification":
+		if localAnswer, ok := solveClassificationLocal(challenge.Prompt); ok {
+			s.logger.Info("Solved locally (classification)", "id", challenge.ID)
+			return localAnswer, nil
+		}
+		answer, err = s.solveWithLLM(ctx, challenge.Prompt, "classification")
+	case ChallengeSentiment:
+		if localAnswer, ok := solveSentimentLocal(challenge.Prompt); ok {
+			s.logger.Info("Solved locally (sentiment)", "id", challenge.ID)
+			return localAnswer, nil
+		}
+		answer, err = s.solveWithLLM(ctx, challenge.Prompt, "sentiment")
 	case ChallengeTextSummary:
 		answer, err = s.solveWithLLM(ctx, challenge.Prompt, "text_summary")
-	case ChallengeSentiment:
-		answer, err = s.solveWithLLM(ctx, challenge.Prompt, "sentiment")
 	case ChallengeEntityExtraction:
 		answer, err = s.solveWithLLM(ctx, challenge.Prompt, "entity_extraction")
 	case ChallengeFormatConvert:
 		answer, err = s.solveFormatConvert(ctx, challenge.Prompt)
 	default:
-		// 未知类型 fallback 到 LLM
-		s.logger.Warn("未知挑战类型，使用 LLM fallback", "type", challenge.Type)
+		s.logger.Warn("Unknown type, LLM fallback", "type", challenge.Type)
 		answer, err = s.solveWithLLM(ctx, challenge.Prompt, string(challenge.Type))
 	}
 

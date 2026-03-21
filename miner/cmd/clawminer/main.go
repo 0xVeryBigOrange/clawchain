@@ -24,6 +24,7 @@ import (
 	"github.com/clawchain/clawminer/config"
 	"github.com/clawchain/clawminer/mining"
 	"github.com/clawchain/clawminer/solver"
+	"github.com/clawchain/clawminer/state"
 )
 
 // 版本信息（编译时注入）
@@ -119,7 +120,15 @@ func startCmd(cfg *config.Config) *cobra.Command {
 			}
 			logger.Info("Miner address loaded", "address", minerAddr)
 
-			loop := mining.NewMiningLoop(cfg, chainClient, slv, minerAddr, logger)
+			// Open state store (persists commit/reveal state across restarts)
+			stateDir := cfg.KeyringDir // reuse keyring dir for state
+			store, err := state.NewStore(stateDir)
+			if err != nil {
+				return fmt.Errorf("failed to open state store: %w", err)
+			}
+			logger.Info("State store opened", "dir", stateDir)
+
+			loop := mining.NewMiningLoop(cfg, chainClient, slv, store, minerAddr, logger)
 
 			// 优雅退出
 			ctx, cancel := context.WithCancel(context.Background())
