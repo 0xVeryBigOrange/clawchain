@@ -126,6 +126,7 @@ func startCmd(cfg *config.Config) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to open state store: %w", err)
 			}
+			defer store.Close()
 			logger.Info("State store opened", "dir", stateDir)
 
 			loop := mining.NewMiningLoop(cfg, chainClient, slv, store, minerAddr, logger)
