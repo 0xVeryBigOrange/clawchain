@@ -1,0 +1,81 @@
+version: '3.8'
+
+# ClawChain 3-validator testnet
+# Usage: docker-compose -f docker-compose.testnet.yml up
+
+services:
+  validator1:
+    build:
+      context: .
+      dockerfile: Dockerfile.chain
+    container_name: clawchain-val1
+    command: start --home /root/.clawchain
+    ports:
+      - "26657:26657"   # RPC
+      - "9090:9090"     # gRPC
+      - "1317:1317"     # REST API
+    volumes:
+      - val1-data:/root/.clawchain
+    environment:
+      - CLAWCHAIN_TEST_EPOCH=50
+    networks:
+      - clawnet
+    restart: unless-stopped
+
+  validator2:
+    build:
+      context: .
+      dockerfile: Dockerfile.chain
+    container_name: clawchain-val2
+    command: start --home /root/.clawchain
+    volumes:
+      - val2-data:/root/.clawchain
+    environment:
+      - CLAWCHAIN_TEST_EPOCH=50
+    networks:
+      - clawnet
+    restart: unless-stopped
+
+  validator3:
+    build:
+      context: .
+      dockerfile: Dockerfile.chain
+    container_name: clawchain-val3
+    command: start --home /root/.clawchain
+    volumes:
+      - val3-data:/root/.clawchain
+    environment:
+      - CLAWCHAIN_TEST_EPOCH=50
+    networks:
+      - clawnet
+    restart: unless-stopped
+
+  miner:
+    build:
+      context: .
+      dockerfile: Dockerfile.miner
+    container_name: clawminer
+    command: >
+      start
+      --node tcp://validator1:26657
+      --chain-binary clawchaind
+      --chain-id clawchain-testnet-1
+      --key miner1
+      --keyring-dir /root/.clawminer
+    volumes:
+      - miner-data:/root/.clawminer
+    depends_on:
+      - validator1
+    networks:
+      - clawnet
+    restart: unless-stopped
+
+volumes:
+  val1-data:
+  val2-data:
+  val3-data:
+  miner-data:
+
+networks:
+  clawnet:
+    driver: bridge

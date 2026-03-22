@@ -1,0 +1,20 @@
+FROM golang:1.22-alpine AS builder
+
+RUN apk add --no-cache make gcc musl-dev git
+
+WORKDIR /build
+COPY miner/ .
+RUN go build -o /clawminer ./cmd/clawminer
+
+# Also build clawchaind (needed for tx signing)
+WORKDIR /chain
+COPY chain/ .
+RUN go build -mod=vendor -o /clawchaind ./cmd/clawchaind
+
+FROM alpine:3.19
+RUN apk add --no-cache ca-certificates
+COPY --from=builder /clawminer /usr/local/bin/
+COPY --from=builder /clawchaind /usr/local/bin/
+
+ENTRYPOINT ["clawminer"]
+CMD ["start"]
